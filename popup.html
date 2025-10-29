@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AEM QuickLinks</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <img src="logo48.png" alt="AEM Logo" class="logo">
+    <h3>AEM QuickLinks</h3>
+  </div>
+  <input id="actionSearch" type="text" placeholder="Search actions..." autocomplete="off" />
+  <div id="message"></div>
+  <div id="actionList">
+    <button id="btnCurrentPageMenu">Current Page →</button>
+    <button id="btnCrxde">CRXDE</button>
+    <button id="btnPackMgr">Package Manager</button>
+    <button id="btnConfigMgr">OSGi Config</button>
+    <button id="btnGroovyConsole">Groovy Console</button>
+    <button id="btnReplicationAgent">Replication Default Agent</button>
+    <button id="btnLoginPublish">Login on Publish</button>
+  </div>
+  <div id="currentPageMenu" style="display:none">
+    <button id="btnGoBack">← Back to main menu</button>
+    <button id="btnCrxdeCurrent">... Open in <b>CRXDE</b></button>
+    <button id="btnOpenAuthor">... Open in <b>Author</b></button>
+    <button id="btnOpenPublish">... Open in <b>Publish</b></button>
+    <button id="btnEditView">... Open in <b>Edit View</b></button>
+    <button id="btnViewAsPublished">... View as <b>Published</b></button>
+    <button id="btnPageProperties">... Open <b>Page Properties</b></button>
+  </div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+/* Search input styles */
+#actionSearch {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  font-size: 1em;
+  border-radius: 6px;
+  border: 1px solid #cfd8dc;
+  box-sizing: border-box;
+  outline: none;
+}
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  min-width: 240px;
+  min-height: 200px;
+  background: #f7f8fa;
+  color: #222;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 18px 16px 16px 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+h3 {
+  margin: 0;
+  font-size: 1.2em;
+  color: #0055a6;
+  letter-spacing: 0.5px;
+}
+#message {
+  color: #2e7d32;
+  background: #f7f8fa;
+  border-radius: 5px;
+  padding: 6px 0;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 0.98em;
+  min-height: 24px;
+  transition: background 0.2s;
+}
+#message.mint {
+  background: #eafbe7;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+}
+button {
+  display: block;
+  margin: 8px 0;
+  width: 100%;
+  padding: 10px 0;
+  font-size: 1em;
+  background: linear-gradient(90deg, #0055a6 0%, #0077d4 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+button:hover {
+  background: linear-gradient(90deg, #0077d4 0%, #0055a6 100%);
+  box-shadow: 0 2px 8px rgba(0,85,166,0.08);
+}
+
+/* Enhanced styling for back button (no duplicate arrows) */
+#btnGoBack {
+  background: linear-gradient(90deg, #666 0%, #888 100%) !important;
+  font-weight: 500;
+}
+
+#btnGoBack:hover {
+  background: linear-gradient(90deg, #777 0%, #999 100%) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Special styling for selected back button */
+#btnGoBack.selected {
+  background: linear-gradient(90deg, #555 0%, #777 100%) !important;
+  color: #fff !important;
+  outline: 2px solid #0077d4 !important;
+  box-shadow: 0 2px 8px rgba(0,119,212,0.3) !important;
+}
+
+/* Selected button styling */
+#actionList button.selected,
+#currentPageMenu button.selected {
+  outline: 2px solid #0077d4 !important;
+  background: linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%) !important;
+  color: #0055a6 !important;
+  box-shadow: 0 2px 8px rgba(0,119,212,0.3) !important;
+  transform: scale(1.02);
+  transition: all 0.15s ease;
+}
+
+#actionList button.selected:hover,
+#currentPageMenu button.selected:hover {
+  background: linear-gradient(90deg, #bbdefb 0%, #90caf9 100%) !important;
+  transform: scale(1.03);
+}
