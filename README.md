@@ -1,5 +1,7 @@
 # AEM QuickLinks Extension
 
+![Tests](https://github.com/YOURUSERNAME/aem-extension/actions/workflows/test.yml/badge.svg)
+
 A Chrome extension for quick access to AEM (Adobe Experience Manager) tools and actions from any page.
 
 ## Features
@@ -56,3 +58,26 @@ When on an AEM content page, access additional context-aware actions:
 2. Click the extension icon or press **Ctrl+Y**
 3. Search for an action or use keyboard navigation
 4. Press **Enter** or click to execute the action
+
+## Development
+
+### Running Tests
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+### Test Coverage
+The project includes comprehensive unit tests for utility functions in `aemHelpers.js`:
+- 62 tests covering all major functionality
+- 100% code coverage for critical utility functions
+- Automated testing via GitHub Actions on every commit
