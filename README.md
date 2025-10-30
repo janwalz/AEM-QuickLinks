@@ -1,6 +1,6 @@
 # AEM QuickLinks Extension
 
-![Tests](https://github.com/YOURUSERNAME/aem-extension/actions/workflows/test.yml/badge.svg)
+![Tests](https://github.com/janwalz/aem-extension/actions/workflows/test.yml/badge.svg)
 
 A Chrome extension for quick access to AEM (Adobe Experience Manager) tools and actions from any page.
 
