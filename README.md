@@ -62,19 +62,46 @@ When on an AEM content page, access additional context-aware actions:
 4. Press **Enter** or click to execute the action
 
 ## Settings
-You can customize ports and URLs used by the extension:
+
+The extension supports multiple project configurations with automatic URL matching.
+
+### Multi-Project Configuration
 
 1. Right-click the extension icon and select **Options**
-2. Configure your settings:
-   - **Author Port** (default: 4502) - Port for local Author instance
-   - **Publish Port** (default: 4503) - Port for local Publish instance
+2. Click **Add Project** to create a new project configuration
+3. Configure each project with:
+   - **Project Name** - A friendly name to identify the project
+   - **URL Pattern** - Domain pattern to match (supports * wildcard)
+     - Examples: `localhost`, `example.com`, `*.adobeaemcloud.com`
+     - Use `*` to match subdomains (e.g., `author-p12345-*.adobeaemcloud.com`)
+   - **Author Port** (default: 4502) - Port for Author instance
+   - **Publish Port** (default: 4503) - Port for Publish instance
    - **Dispatcher URL** - Base URL for your Dispatcher (e.g., https://www.yoursite.com)
-3. Leave port fields blank to use defaults
-4. Click **Save Settings**
+4. The extension automatically detects which project to use based on the current URL
+
+### Pattern Matching
+
+- Patterns match the hostname of the current URL
+- The first matching project in your list is used
+- **Tip:** Order matters! Place more specific patterns before general wildcard patterns
+  - Example: List `author-p12345-e67890.adobeaemcloud.com` before `*.adobeaemcloud.com`
+- Wildcard `*` matches one or more characters (but not dots)
+  - `*.adobeaemcloud.com` matches `author-p12345-e67890.adobeaemcloud.com`
+  - `*.adobeaemcloud.com` does NOT match `adobeaemcloud.com`
+
+### Multiple Localhost Projects
+
+You can configure multiple projects with the same `localhost` pattern but different ports:
+- The extension matches based on the **current port** in your browser URL
+- Example: If you're on `http://localhost:5502`, it matches the project with authorPort `5502` or publishPort `5503`
+- If you have both `localhost:4502` and `localhost:5502` projects, the extension automatically selects the correct one
+- **Important:** Patterns `localhost` and `127.0.0.1` are treated as different - create separate projects if you use both
+
+### Migration from Old Settings
+
+If you're upgrading from a previous version, your old settings will be automatically migrated to a "Default Project" with a localhost pattern.
 
 **Important:** The Dispatcher URL must be configured to use dispatcher-related buttons. If not set, you'll see an error with a link to the settings page.
-
-**Note:** Port settings only affect localhost connections. AEM Cloud instances use their default configurations.
 
 ## Development
 
@@ -95,6 +122,6 @@ npm run test:coverage
 
 ### Test Coverage
 The project includes comprehensive unit tests for utility functions in `aemHelpers.js`:
-- 78 tests covering all major functionality
+- 98 tests covering all major functionality including multi-project support with port-based matching
 - 98% code coverage for critical utility functions
 - Automated testing via GitHub Actions on every commit

@@ -9,6 +9,8 @@ import {
   getValidContentPath,
   getPortSettings,
   openDispatcher,
+  getProjects,
+  matchUrlToProject,
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
@@ -43,8 +45,233 @@ describe('aemHelpers', () => {
     chrome.runtime = {};
   });
 
+  describe('getProjects', () => {
+    it('should return empty array when storage is empty', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+    });
+
+    it('should return projects from storage', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Project 1',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual(mockProjects);
+    });
+
+    it('should handle chrome.runtime.lastError', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        chrome.runtime = { lastError: new Error('Storage error') };
+        callback({});
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+
+      consoleWarnSpy.mockRestore();
+      chrome.runtime = {};
+    });
+
+    it('should handle missing chrome.storage.sync', async () => {
+      const originalSync = chrome.storage.sync;
+      delete chrome.storage.sync;
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+
+      chrome.storage.sync = originalSync;
+    });
+  });
+
+  describe('matchUrlToProject', () => {
+    const projects = [
+      {
+        id: '1',
+        name: 'Local Project 4502',
+        pattern: 'localhost',
+        authorPort: '4502',
+        publishPort: '4503',
+        dispatcherUrl: 'https://localhost-dispatcher.com'
+      },
+      {
+        id: '2',
+        name: 'Local Project 5502',
+        pattern: 'localhost',
+        authorPort: '5502',
+        publishPort: '5503',
+        dispatcherUrl: 'https://localhost-5502-dispatcher.com'
+      },
+      {
+        id: '3',
+        name: 'AEM Cloud',
+        pattern: '*.adobeaemcloud.com',
+        authorPort: '4502',
+        publishPort: '4503',
+        dispatcherUrl: 'https://cloud-dispatcher.com'
+      },
+      {
+        id: '4',
+        name: 'Specific Project',
+        pattern: 'author-p12345-e67890.adobeaemcloud.com',
+        authorPort: '5502',
+        publishPort: '5503',
+        dispatcherUrl: 'https://specific-dispatcher.com'
+      }
+    ];
+
+    it('should match localhost with port 4502', () => {
+      const url = 'http://localhost:4502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[0]);
+      expect(matched.name).toBe('Local Project 4502');
+    });
+
+    it('should match localhost with port 4503 to same project as 4502', () => {
+      const url = 'http://localhost:4503/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[0]);
+      expect(matched.name).toBe('Local Project 4502');
+    });
+
+    it('should match localhost with port 5502', () => {
+      const url = 'http://localhost:5502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[1]);
+      expect(matched.name).toBe('Local Project 5502');
+    });
+
+    it('should match localhost with port 5503 to same project as 5502', () => {
+      const url = 'http://localhost:5503/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[1]);
+      expect(matched.name).toBe('Local Project 5502');
+    });
+
+    it('should return null for localhost with non-matching port', () => {
+      const url = 'http://localhost:8080/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null for 127.0.0.1 when pattern is localhost', () => {
+      // 127.0.0.1 doesn't match pattern "localhost" - they need separate patterns
+      const url = 'http://127.0.0.1:5502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should match 127.0.0.1 when pattern explicitly includes it', () => {
+      const projectsWithIP = [
+        {
+          id: '1',
+          name: 'Local IP Project',
+          pattern: '127.0.0.1',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://local-dispatcher.com'
+        }
+      ];
+
+      const url = 'http://127.0.0.1:5502/content/page.html';
+      const matched = matchUrlToProject(url, projectsWithIP);
+      expect(matched.name).toBe('Local IP Project');
+    });
+
+    it('should match wildcard pattern', () => {
+      const url = 'https://author-p99999-e88888.adobeaemcloud.com/editor.html/content/page';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched.name).toBe('AEM Cloud'); // Wildcard pattern matches
+    });
+
+    it('should match exact hostname (first match wins)', () => {
+      const url = 'https://author-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      // Both patterns match, but wildcard pattern comes first in array, so it wins
+      expect(matched).toEqual(projects[2]);
+    });
+
+    it('should return null for no match', () => {
+      const url = 'https://www.google.com';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null for invalid URL', () => {
+      const matched = matchUrlToProject('not-a-url', projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null when projects is empty', () => {
+      const url = 'http://localhost:4502';
+      const matched = matchUrlToProject(url, []);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null when URL is null', () => {
+      const matched = matchUrlToProject(null, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should match subdomain with wildcard', () => {
+      const url = 'https://publish-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched.pattern).toBe('*.adobeaemcloud.com');
+    });
+
+    it('should prioritize specific patterns when ordered correctly', () => {
+      // When projects are ordered with specific patterns first, they match first
+      const orderedProjects = [
+        {
+          id: '4',
+          name: 'Specific Project',
+          pattern: 'author-p12345-e67890.adobeaemcloud.com',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://specific-dispatcher.com'
+        },
+        {
+          id: '3',
+          name: 'AEM Cloud',
+          pattern: '*.adobeaemcloud.com',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: 'https://cloud-dispatcher.com'
+        }
+      ];
+
+      const url = 'https://author-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, orderedProjects);
+      expect(matched.name).toBe('Specific Project');
+    });
+
+    it('should match localhost without port to first matching project', () => {
+      const url = 'http://localhost/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      // Without port, first localhost project matches
+      expect(matched.name).toBe('Local Project 4502');
+    });
+  });
+
   describe('getPortSettings', () => {
-    it('should return default ports when storage is empty', async () => {
+    it('should return default ports when no URL provided and storage is empty', async () => {
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
         callback({});
       });
@@ -55,39 +282,73 @@ describe('aemHelpers', () => {
       expect(settings.dispatcherUrl).toBe('');
     });
 
-    it('should return custom ports when stored', async () => {
+    it('should return project settings when URL matches', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ authorPort: '5502', publishPort: '5503', dispatcherUrl: 'https://example.com' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:5502/content/page.html');
       expect(settings.authorPort).toBe('5502');
       expect(settings.publishPort).toBe('5503');
       expect(settings.dispatcherUrl).toBe('https://example.com');
     });
 
-    it('should use default for missing authorPort', async () => {
+    it('should return defaults when URL does not match any project', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ publishPort: '5503' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('https://www.google.com');
       expect(settings.authorPort).toBe('4502');
-      expect(settings.publishPort).toBe('5503');
+      expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
     });
 
-    it('should use default for missing publishPort', async () => {
+    it('should use default ports when project has empty port values', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '',
+          publishPort: '',
+          dispatcherUrl: ''
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ authorPort: '5502' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
-      expect(settings.authorPort).toBe('5502');
+      const settings = await getPortSettings('http://localhost:4502');
+      expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
     });
 
     it('should handle chrome.runtime.lastError', async () => {
-      // Suppress console.warn for this test
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
@@ -95,17 +356,10 @@ describe('aemHelpers', () => {
         callback({});
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:4502');
       expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
 
-      // Verify warning was called
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Error getting settings:',
-        expect.any(Error)
-      );
-
-      // Clean up
       consoleWarnSpy.mockRestore();
       chrome.runtime = {};
     });
@@ -114,11 +368,10 @@ describe('aemHelpers', () => {
       const originalSync = chrome.storage.sync;
       delete chrome.storage.sync;
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:4502');
       expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
 
-      // Restore
       chrome.storage.sync = originalSync;
     });
   });

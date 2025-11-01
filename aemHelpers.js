@@ -5,49 +5,122 @@ const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
 
 /**
- * Gets settings from storage with defaults
- * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
+ * Gets all projects from storage
+ * @returns {Promise<Array>}
  */
-export async function getPortSettings() {
+export async function getProjects() {
   return new Promise((resolve) => {
-    // Check if chrome API is available
     if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
-      resolve({
-        authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT,
-        dispatcherUrl: ''
-      });
+      resolve([]);
       return;
     }
 
     try {
-      chrome.storage.sync.get(['authorPort', 'publishPort', 'dispatcherUrl'], (result) => {
-        // Check for errors
+      chrome.storage.sync.get(['projects'], (result) => {
         if (chrome.runtime?.lastError) {
-          console.warn('Error getting settings:', chrome.runtime.lastError);
-          resolve({
-            authorPort: DEFAULT_AUTHOR_PORT,
-            publishPort: DEFAULT_PUBLISH_PORT,
-            dispatcherUrl: ''
-          });
+          console.warn('Error getting projects:', chrome.runtime.lastError);
+          resolve([]);
           return;
         }
 
-        resolve({
-          authorPort: result.authorPort || DEFAULT_AUTHOR_PORT,
-          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT,
-          dispatcherUrl: result.dispatcherUrl || ''
-        });
+        resolve(result.projects || []);
       });
     } catch (error) {
       console.warn('Error accessing storage:', error);
-      resolve({
-        authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT,
-        dispatcherUrl: ''
-      });
+      resolve([]);
     }
   });
+}
+
+/**
+ * Matches a URL to a project based on pattern and port
+ * @param {string} url - Current URL
+ * @param {Array} projects - List of projects
+ * @returns {object|null} - Matched project or null
+ */
+export function matchUrlToProject(url, projects) {
+  if (!url || !projects || projects.length === 0) {
+    return null;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    const port = urlObj.port;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+    // Find matching project
+    for (const project of projects) {
+      if (matchesPattern(hostname, project.pattern)) {
+        // For localhost/127.0.0.1, also check if port matches author or publish port
+        if (isLocalhost && port) {
+          const authorPort = project.authorPort || DEFAULT_AUTHOR_PORT;
+          const publishPort = project.publishPort || DEFAULT_PUBLISH_PORT;
+
+          // Port must match either author or publish port for this project
+          if (port === authorPort || port === publishPort) {
+            return project;
+          }
+          // Skip this project if port doesn't match
+          continue;
+        }
+
+        // For non-localhost or localhost without port, hostname match is enough
+        return project;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Checks if a hostname matches a pattern (supports * wildcard)
+ * @param {string} hostname
+ * @param {string} pattern
+ * @returns {boolean}
+ */
+function matchesPattern(hostname, pattern) {
+  // Convert pattern to regex
+  // * matches any characters except dots
+  // *.example.com matches subdomain.example.com but not example.com
+  // example.com matches exactly example.com
+  const regexPattern = pattern
+    .replace(/\./g, '\\.')  // Escape dots
+    .replace(/\*/g, '[^.]+'); // * matches one or more non-dot characters
+
+  const regex = new RegExp(`^${regexPattern}$`, 'i');
+  return regex.test(hostname);
+}
+
+/**
+ * Gets settings for the current URL with project-based config
+ * @param {string} [currentUrl] - Optional URL to match (defaults to current tab)
+ * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
+ */
+export async function getPortSettings(currentUrl = null) {
+  const projects = await getProjects();
+
+  // If URL provided, match to project
+  if (currentUrl) {
+    const project = matchUrlToProject(currentUrl, projects);
+    if (project) {
+      return {
+        authorPort: project.authorPort || DEFAULT_AUTHOR_PORT,
+        publishPort: project.publishPort || DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: project.dispatcherUrl || ''
+      };
+    }
+  }
+
+  // No match, return defaults
+  return {
+    authorPort: DEFAULT_AUTHOR_PORT,
+    publishPort: DEFAULT_PUBLISH_PORT,
+    dispatcherUrl: ''
+  };
 }
 
 /**

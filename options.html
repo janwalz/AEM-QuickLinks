@@ -10,74 +10,130 @@
   <div class="container">
     <header>
       <h1>AEM QuickLinks Settings</h1>
-      <p class="subtitle">Configure default ports for your AEM instances</p>
+      <p class="subtitle">Configure your AEM projects</p>
     </header>
 
     <main>
-      <form id="settingsForm">
-        <div class="form-group">
-          <label for="authorPort">
-            <span class="label-text">Author Port</span>
-            <span class="label-description">Default port for AEM Author instance</span>
-          </label>
-          <input
-            type="text"
-            id="authorPort"
-            name="authorPort"
-            placeholder="4502"
-            pattern="[0-9]*"
-            maxlength="5"
-          >
-          <span class="help-text">Leave blank for default (4502)</span>
+      <div class="projects-section">
+        <div class="section-header">
+          <h2>Projects</h2>
+          <button type="button" id="addProjectBtn" class="btn btn-primary btn-small">+ Add Project</button>
         </div>
 
-        <div class="form-group">
-          <label for="publishPort">
-            <span class="label-text">Publish Port</span>
-            <span class="label-description">Default port for AEM Publish instance</span>
-          </label>
-          <input
-            type="text"
-            id="publishPort"
-            name="publishPort"
-            placeholder="4503"
-            pattern="[0-9]*"
-            maxlength="5"
-          >
-          <span class="help-text">Leave blank for default (4503)</span>
+        <div id="projectsList" class="projects-list">
+          <!-- Projects will be added dynamically here -->
         </div>
 
-        <div class="form-group">
-          <label for="dispatcherUrl">
-            <span class="label-text">Dispatcher URL</span>
-            <span class="label-description">Base URL for your Dispatcher instance</span>
-          </label>
-          <input
-            type="text"
-            id="dispatcherUrl"
-            name="dispatcherUrl"
-            placeholder="https://www.example.com"
-          >
-          <span class="help-text">Include protocol (https://) but no trailing slash</span>
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <p>No projects configured yet.</p>
+          <p>Click "Add Project" to create your first project.</p>
         </div>
+      </div>
 
-        <div class="button-group">
-          <button type="submit" class="btn btn-primary">Save Settings</button>
-          <button type="button" id="resetBtn" class="btn btn-secondary">Reset to Defaults</button>
+      <div id="projectModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="modalTitle">Add Project</h2>
+            <button type="button" class="close-btn" id="closeModal">&times;</button>
+          </div>
+
+          <form id="projectForm">
+            <input type="hidden" id="projectId" />
+
+            <div class="form-group">
+              <label for="projectName">
+                <span class="label-text">Project Name</span>
+                <span class="label-description">A friendly name to identify this project</span>
+              </label>
+              <input
+                type="text"
+                id="projectName"
+                name="projectName"
+                placeholder="My AEM Project"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="projectPattern">
+                <span class="label-text">URL Pattern</span>
+                <span class="label-description">Domain pattern to match (e.g., localhost, example.com, *.adobeaemcloud.com)</span>
+              </label>
+              <input
+                type="text"
+                id="projectPattern"
+                name="projectPattern"
+                placeholder="localhost"
+                required
+              >
+              <span class="help-text">Use * as wildcard. Example: author-p12345-*.adobeaemcloud.com</span>
+            </div>
+
+            <div class="form-group">
+              <label for="authorPort">
+                <span class="label-text">Author Port</span>
+                <span class="label-description">Port for AEM Author instance</span>
+              </label>
+              <input
+                type="text"
+                id="authorPort"
+                name="authorPort"
+                placeholder="4502"
+                pattern="[0-9]*"
+                maxlength="5"
+              >
+              <span class="help-text">Leave blank for default (4502)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="publishPort">
+                <span class="label-text">Publish Port</span>
+                <span class="label-description">Port for AEM Publish instance</span>
+              </label>
+              <input
+                type="text"
+                id="publishPort"
+                name="publishPort"
+                placeholder="4503"
+                pattern="[0-9]*"
+                maxlength="5"
+              >
+              <span class="help-text">Leave blank for default (4503)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="dispatcherUrl">
+                <span class="label-text">Dispatcher URL</span>
+                <span class="label-description">Base URL for your Dispatcher instance</span>
+              </label>
+              <input
+                type="text"
+                id="dispatcherUrl"
+                name="dispatcherUrl"
+                placeholder="https://www.example.com"
+              >
+              <span class="help-text">Include protocol (https://) but no trailing slash</span>
+            </div>
+
+            <div class="button-group">
+              <button type="submit" class="btn btn-primary">Save Project</button>
+              <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+
+            <div id="modalMessage" class="message"></div>
+          </form>
         </div>
-
-        <div id="message" class="message"></div>
-      </form>
+      </div>
 
       <div class="info-section">
         <h2>About</h2>
-        <p>These settings control the default ports and URLs used by the extension.</p>
+        <p>Configure multiple AEM projects with different settings. The extension automatically detects which project to use based on the current URL.</p>
         <ul>
-          <li><strong>Author Port (4502):</strong> Used for CRXDE, Package Manager, Config Manager, etc.</li>
-          <li><strong>Publish Port (4503):</strong> Used when opening publish instance or publish login</li>
-          <li><strong>Dispatcher URL:</strong> Base URL for your Dispatcher (e.g., https://www.yoursite.com). Required for dispatcher buttons.</li>
+          <li><strong>URL Pattern:</strong> Matches the hostname. Use * as wildcard (e.g., *.adobeaemcloud.com matches all AEM Cloud URLs)</li>
+          <li><strong>Author/Publish Ports:</strong> Used for localhost connections</li>
+          <li><strong>Dispatcher URL:</strong> Base URL for your production/staging site</li>
         </ul>
-        <p class="note"><strong>Note:</strong> Port settings only affect localhost connections. AEM Cloud instances use their default configurations.</p>
+        <p class="note"><strong>Tip:</strong> Create separate projects for local development, staging, and production environments.</p>
       </div>
     </main>
 

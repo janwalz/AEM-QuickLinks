@@ -49,13 +49,16 @@ class PopupState {
 // --- Button Action Handlers ---
 const BUTTON_HANDLERS = {
   btnCrxde: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
+    });
   },
 
   btnCrxdeCurrent: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const contentPath = getContentPath(tab.url);
       if (contentPath) {
         // Open CRXDE with current page path
@@ -70,8 +73,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnOpenPublish: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
@@ -90,8 +93,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnOpenAuthor: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
@@ -110,8 +113,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnEditView: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openAemTool('/editor.html' + contentPath, settings.authorPort, 'Opening edit view for current page...');
       });
@@ -119,33 +122,48 @@ const BUTTON_HANDLERS = {
   },
 
   btnPackMgr: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/crx/packmgr', settings.authorPort, 'Opening Package Manager...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/crx/packmgr', settings.authorPort, 'Opening Package Manager...');
+    });
   },
 
   btnReplicationAgent: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/etc/replication/agents.author/publish.html', settings.authorPort, 'Opening Replication Default Agent...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/etc/replication/agents.author/publish.html', settings.authorPort, 'Opening Replication Default Agent...');
+    });
   },
 
   btnLoginPublish: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/libs/granite/core/content/login.html', settings.publishPort, 'Opening Login on Publish...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/libs/granite/core/content/login.html', settings.publishPort, 'Opening Login on Publish...');
+    });
   },
 
   btnConfigMgr: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/system/console/configMgr', settings.authorPort, 'Opening Config Manager...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/system/console/configMgr', settings.authorPort, 'Opening Config Manager...');
+    });
   },
 
   btnGroovyConsole: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/groovyconsole', settings.authorPort, 'Opening Groovy Console...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/groovyconsole', settings.authorPort, 'Opening Groovy Console...');
+    });
   },
 
   btnViewAsPublished: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openAemTool(contentPath + '?wcmmode=disabled', settings.authorPort, 'Opening as published...');
       });
@@ -153,8 +171,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnPageProperties: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         // Remove file extension and add /jcr:content.html for page properties
         const pagePath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
@@ -164,13 +182,16 @@ const BUTTON_HANDLERS = {
   },
 
   btnDispatcher: async () => {
-    const settings = await getPortSettings();
-    openDispatcher(settings.dispatcherUrl);
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openDispatcher(settings.dispatcherUrl);
+    });
   },
 
   btnDispatcherCurrent: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openDispatcher(settings.dispatcherUrl, contentPath);
       }, 'No content page detected!');
