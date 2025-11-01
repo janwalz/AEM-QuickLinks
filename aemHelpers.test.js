@@ -8,6 +8,7 @@ import {
   withValidAemTab,
   getValidContentPath,
   getPortSettings,
+  openDispatcher,
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
@@ -51,16 +52,18 @@ describe('aemHelpers', () => {
       const settings = await getPortSettings();
       expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
     });
 
     it('should return custom ports when stored', async () => {
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ authorPort: '5502', publishPort: '5503' });
+        callback({ authorPort: '5502', publishPort: '5503', dispatcherUrl: 'https://example.com' });
       });
 
       const settings = await getPortSettings();
       expect(settings.authorPort).toBe('5502');
       expect(settings.publishPort).toBe('5503');
+      expect(settings.dispatcherUrl).toBe('https://example.com');
     });
 
     it('should use default for missing authorPort', async () => {
@@ -415,6 +418,66 @@ describe('aemHelpers', () => {
       expect(onSuccess).not.toHaveBeenCalled();
       const msg = document.getElementById('message');
       expect(msg.textContent).toBe('No content page detected!');
+    });
+  });
+
+  describe('openDispatcher', () => {
+    beforeEach(() => {
+      global.window.close = jest.fn();
+      global.setTimeout = jest.fn((cb) => cb());
+      chrome.runtime.openOptionsPage = jest.fn();
+    });
+
+    it('should open dispatcher with base URL only', () => {
+      openDispatcher('https://www.example.com');
+
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://www.example.com'
+      });
+      expect(window.close).toHaveBeenCalled();
+    });
+
+    it('should open dispatcher with path', () => {
+      openDispatcher('https://www.example.com', '/content/page.html');
+
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://www.example.com/content/page.html'
+      });
+    });
+
+    it('should remove trailing slash from dispatcher URL', () => {
+      openDispatcher('https://www.example.com/', '/content/page.html');
+
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://www.example.com/content/page.html'
+      });
+    });
+
+    it('should show error with settings link when URL is empty', () => {
+      openDispatcher('');
+
+      expect(chrome.tabs.create).not.toHaveBeenCalled();
+      const msg = document.getElementById('message');
+      expect(msg.innerHTML).toContain('Dispatcher URL not configured');
+      expect(msg.innerHTML).toContain('Open Settings');
+    });
+
+    it('should show error with settings link when URL is whitespace', () => {
+      openDispatcher('   ');
+
+      expect(chrome.tabs.create).not.toHaveBeenCalled();
+      const msg = document.getElementById('message');
+      expect(msg.innerHTML).toContain('Dispatcher URL not configured');
+    });
+
+    it('should open settings when settings link is clicked', () => {
+      openDispatcher('');
+
+      const settingsLink = document.getElementById('openSettings');
+      expect(settingsLink).toBeTruthy();
+
+      settingsLink.click();
+      expect(chrome.runtime.openOptionsPage).toHaveBeenCalled();
     });
   });
 

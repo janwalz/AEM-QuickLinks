@@ -5,8 +5,8 @@ const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
 
 /**
- * Gets port settings from storage with defaults
- * @returns {Promise<{authorPort: string, publishPort: string}>}
+ * Gets settings from storage with defaults
+ * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
  */
 export async function getPortSettings() {
   return new Promise((resolve) => {
@@ -14,47 +14,53 @@ export async function getPortSettings() {
     if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
       resolve({
         authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT
+        publishPort: DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: ''
       });
       return;
     }
 
     try {
-      chrome.storage.sync.get(['authorPort', 'publishPort'], (result) => {
+      chrome.storage.sync.get(['authorPort', 'publishPort', 'dispatcherUrl'], (result) => {
         if (chrome.runtime?.lastError) {
           console.warn('Error getting settings:', chrome.runtime.lastError);
           resolve({
             authorPort: DEFAULT_AUTHOR_PORT,
-            publishPort: DEFAULT_PUBLISH_PORT
+            publishPort: DEFAULT_PUBLISH_PORT,
+            dispatcherUrl: ''
           });
           return;
         }
 
         resolve({
           authorPort: result.authorPort || DEFAULT_AUTHOR_PORT,
-          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT
+          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT,
+          dispatcherUrl: result.dispatcherUrl || ''
         });
       });
     } catch (error) {
       console.warn('Error accessing storage:', error);
       resolve({
         authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT
+        publishPort: DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: ''
       });
     }
   });
 }
 
 /**
- * Saves port settings to storage
+ * Saves settings to storage
  * @param {string} authorPort
  * @param {string} publishPort
+ * @param {string} dispatcherUrl
  * @returns {Promise<void>}
  */
-export async function savePortSettings(authorPort, publishPort) {
+export async function savePortSettings(authorPort, publishPort, dispatcherUrl) {
   // Normalize empty strings to defaults
   const normalizedAuthor = authorPort.trim() || DEFAULT_AUTHOR_PORT;
   const normalizedPublish = publishPort.trim() || DEFAULT_PUBLISH_PORT;
+  const normalizedDispatcher = dispatcherUrl.trim();
 
   return new Promise((resolve, reject) => {
     // Check if chrome API is available
@@ -66,7 +72,8 @@ export async function savePortSettings(authorPort, publishPort) {
     try {
       chrome.storage.sync.set({
         authorPort: normalizedAuthor,
-        publishPort: normalizedPublish
+        publishPort: normalizedPublish,
+        dispatcherUrl: normalizedDispatcher
       }, () => {
         if (chrome.runtime?.lastError) {
           reject(chrome.runtime.lastError);
@@ -115,6 +122,7 @@ async function loadSettings() {
   const settings = await getPortSettings();
   document.getElementById('authorPort').value = settings.authorPort === DEFAULT_AUTHOR_PORT ? '' : settings.authorPort;
   document.getElementById('publishPort').value = settings.publishPort === DEFAULT_PUBLISH_PORT ? '' : settings.publishPort;
+  document.getElementById('dispatcherUrl').value = settings.dispatcherUrl || '';
 }
 
 /**
@@ -125,6 +133,7 @@ async function handleSave(e) {
 
   const authorPort = document.getElementById('authorPort').value;
   const publishPort = document.getElementById('publishPort').value;
+  const dispatcherUrl = document.getElementById('dispatcherUrl').value;
 
   // Validate ports
   if (!isValidPort(authorPort)) {
@@ -137,8 +146,22 @@ async function handleSave(e) {
     return;
   }
 
+  // Validate dispatcher URL if provided
+  if (dispatcherUrl.trim()) {
+    try {
+      const url = new URL(dispatcherUrl);
+      if (!url.protocol.startsWith('http')) {
+        showMessage('Dispatcher URL must start with http:// or https://', 'error');
+        return;
+      }
+    } catch (error) {
+      showMessage('Invalid dispatcher URL. Please enter a valid URL.', 'error');
+      return;
+    }
+  }
+
   try {
-    await savePortSettings(authorPort, publishPort);
+    await savePortSettings(authorPort, publishPort, dispatcherUrl);
     showMessage('Settings saved successfully!', 'success');
 
     // Update display to show actual saved values
@@ -154,10 +177,11 @@ async function handleSave(e) {
  */
 async function handleReset() {
   try {
-    await savePortSettings(DEFAULT_AUTHOR_PORT, DEFAULT_PUBLISH_PORT);
+    await savePortSettings(DEFAULT_AUTHOR_PORT, DEFAULT_PUBLISH_PORT, '');
     document.getElementById('authorPort').value = '';
     document.getElementById('publishPort').value = '';
-    showMessage('Settings reset to defaults (4502/4503)', 'success');
+    document.getElementById('dispatcherUrl').value = '';
+    showMessage('Settings reset to defaults', 'success');
   } catch (error) {
     showMessage('Error resetting settings. Please try again.', 'error');
     console.error('Reset error:', error);

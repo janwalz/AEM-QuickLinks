@@ -13,12 +13,14 @@ A Chrome extension for quick access to AEM (Adobe Experience Manager) tools and 
 - **Groovy Console** - Launch the Groovy Console
 - **Replication Default Agent** - Open the default replication agent
 - **Login on Publish** - Access the publish instance login page
+- **Dispatcher** - Open your configured Dispatcher URL
 
 ### Current Page Submenu
 When on an AEM content page, access additional context-aware actions:
 - **Open in CRXDE** - Opens CRXDE with the current page's node selected (falls back to standard CRXDE if no content page detected)
 - **Open in Author** - Opens the current page on the Author instance
 - **Open in Publish** - Opens the current page on the Publish instance
+- **Open in Dispatcher** - Opens the current page on your configured Dispatcher
 - **Open in Edit View** - Opens the page in AEM's Page Editor
 - **View as Published** - Opens the page with `wcmmode=disabled` parameter
 - **Open Page Properties** - Access the page properties dialog
@@ -60,14 +62,17 @@ When on an AEM content page, access additional context-aware actions:
 4. Press **Enter** or click to execute the action
 
 ## Settings
-You can customize the default ports for your local AEM instances:
+You can customize ports and URLs used by the extension:
 
 1. Right-click the extension icon and select **Options**
-2. Configure your preferred ports:
-   - **Author Port** (default: 4502)
-   - **Publish Port** (default: 4503)
-3. Leave fields blank to use defaults
+2. Configure your settings:
+   - **Author Port** (default: 4502) - Port for local Author instance
+   - **Publish Port** (default: 4503) - Port for local Publish instance
+   - **Dispatcher URL** - Base URL for your Dispatcher (e.g., https://www.yoursite.com)
+3. Leave port fields blank to use defaults
 4. Click **Save Settings**
+
+**Important:** The Dispatcher URL must be configured to use dispatcher-related buttons. If not set, you'll see an error with a link to the settings page.
 
 **Note:** Port settings only affect localhost connections. AEM Cloud instances use their default configurations.
 
@@ -90,6 +95,6 @@ npm run test:coverage
 
 ### Test Coverage
 The project includes comprehensive unit tests for utility functions in `aemHelpers.js`:
-- 62 tests covering all major functionality
-- 100% code coverage for critical utility functions
+- 78 tests covering all major functionality
+- 98% code coverage for critical utility functions
 - Automated testing via GitHub Actions on every commit

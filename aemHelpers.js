@@ -5,8 +5,8 @@ const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
 
 /**
- * Gets port settings from storage with defaults
- * @returns {Promise<{authorPort: string, publishPort: string}>}
+ * Gets settings from storage with defaults
+ * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
  */
 export async function getPortSettings() {
   return new Promise((resolve) => {
@@ -14,33 +14,37 @@ export async function getPortSettings() {
     if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
       resolve({
         authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT
+        publishPort: DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: ''
       });
       return;
     }
 
     try {
-      chrome.storage.sync.get(['authorPort', 'publishPort'], (result) => {
+      chrome.storage.sync.get(['authorPort', 'publishPort', 'dispatcherUrl'], (result) => {
         // Check for errors
         if (chrome.runtime?.lastError) {
           console.warn('Error getting settings:', chrome.runtime.lastError);
           resolve({
             authorPort: DEFAULT_AUTHOR_PORT,
-            publishPort: DEFAULT_PUBLISH_PORT
+            publishPort: DEFAULT_PUBLISH_PORT,
+            dispatcherUrl: ''
           });
           return;
         }
 
         resolve({
           authorPort: result.authorPort || DEFAULT_AUTHOR_PORT,
-          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT
+          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT,
+          dispatcherUrl: result.dispatcherUrl || ''
         });
       });
     } catch (error) {
       console.warn('Error accessing storage:', error);
       resolve({
         authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT
+        publishPort: DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: ''
       });
     }
   });
@@ -199,6 +203,46 @@ export function getValidContentPath(tab, onSuccess, onError) {
     onSuccess(contentPath);
   } else {
     showMessage(onError || 'No content page detected!', true);
+  }
+}
+
+/**
+ * Opens dispatcher URL, showing error with settings link if not configured
+ * @param {string} dispatcherUrl - Base dispatcher URL
+ * @param {string} [path] - Optional path to append
+ */
+export function openDispatcher(dispatcherUrl, path = '') {
+  if (!dispatcherUrl || !dispatcherUrl.trim()) {
+    showDispatcherNotConfiguredError();
+    return;
+  }
+
+  // Remove trailing slash from dispatcher URL
+  const baseUrl = dispatcherUrl.replace(/\/$/, '');
+  const fullUrl = path ? `${baseUrl}${path}` : baseUrl;
+
+  chrome.tabs.create({ url: fullUrl });
+  showMessage('Opening dispatcher...', false);
+  setTimeout(() => window.close(), 100);
+}
+
+/**
+ * Shows error message with link to settings when dispatcher is not configured
+ */
+function showDispatcherNotConfiguredError() {
+  const msg = document.getElementById('message');
+  if (msg) {
+    msg.innerHTML = 'Dispatcher URL not configured. <a href="#" id="openSettings" style="color: #667eea; text-decoration: underline;">Open Settings</a>';
+    msg.classList.add('mint');
+
+    // Add click handler for settings link
+    const settingsLink = document.getElementById('openSettings');
+    if (settingsLink) {
+      settingsLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.runtime.openOptionsPage();
+      });
+    }
   }
 }
 

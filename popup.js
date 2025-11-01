@@ -5,7 +5,8 @@ import {
   withValidAemTab,
   getValidContentPath,
   getContentPath,
-  getPortSettings
+  getPortSettings,
+  openDispatcher
 } from './aemHelpers.js';
 
 // --- UI State Manager ---
@@ -159,6 +160,20 @@ const BUTTON_HANDLERS = {
         const pagePath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
         openAemTool('/mnt/override/apps/wcm/core/content/sites/properties.html?item=' + pagePath, settings.authorPort, 'Opening page properties...');
       });
+    });
+  },
+
+  btnDispatcher: async () => {
+    const settings = await getPortSettings();
+    openDispatcher(settings.dispatcherUrl);
+  },
+
+  btnDispatcherCurrent: async () => {
+    const settings = await getPortSettings();
+    withValidAemTab(tab => {
+      getValidContentPath(tab, contentPath => {
+        openDispatcher(settings.dispatcherUrl, contentPath);
+      }, 'No content page detected!');
     });
   }
 };

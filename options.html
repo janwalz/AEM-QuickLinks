@@ -47,6 +47,20 @@
           <span class="help-text">Leave blank for default (4503)</span>
         </div>
 
+        <div class="form-group">
+          <label for="dispatcherUrl">
+            <span class="label-text">Dispatcher URL</span>
+            <span class="label-description">Base URL for your Dispatcher instance</span>
+          </label>
+          <input
+            type="text"
+            id="dispatcherUrl"
+            name="dispatcherUrl"
+            placeholder="https://www.example.com"
+          >
+          <span class="help-text">Include protocol (https://) but no trailing slash</span>
+        </div>
+
         <div class="button-group">
           <button type="submit" class="btn btn-primary">Save Settings</button>
           <button type="button" id="resetBtn" class="btn btn-secondary">Reset to Defaults</button>
@@ -57,12 +71,13 @@
 
       <div class="info-section">
         <h2>About</h2>
-        <p>These settings control the default ports used when opening AEM tools on localhost.</p>
+        <p>These settings control the default ports and URLs used by the extension.</p>
         <ul>
           <li><strong>Author Port (4502):</strong> Used for CRXDE, Package Manager, Config Manager, etc.</li>
           <li><strong>Publish Port (4503):</strong> Used when opening publish instance or publish login</li>
+          <li><strong>Dispatcher URL:</strong> Base URL for your Dispatcher (e.g., https://www.yoursite.com). Required for dispatcher buttons.</li>
         </ul>
-        <p class="note"><strong>Note:</strong> These settings only affect localhost connections. AEM Cloud instances use their default configurations.</p>
+        <p class="note"><strong>Note:</strong> Port settings only affect localhost connections. AEM Cloud instances use their default configurations.</p>
       </div>
     </main>
 
