@@ -59,6 +59,18 @@ When on an AEM content page, access additional context-aware actions:
 3. Search for an action or use keyboard navigation
 4. Press **Enter** or click to execute the action
 
+## Settings
+You can customize the default ports for your local AEM instances:
+
+1. Right-click the extension icon and select **Options**
+2. Configure your preferred ports:
+   - **Author Port** (default: 4502)
+   - **Publish Port** (default: 4503)
+3. Leave fields blank to use defaults
+4. Click **Save Settings**
+
+**Note:** Port settings only affect localhost connections. AEM Cloud instances use their default configurations.
+
 ## Development
 
 ### Running Tests

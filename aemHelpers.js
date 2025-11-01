@@ -1,6 +1,51 @@
 // aemHelpers.js
 // Utility functions for AEM Chrome extension
 
+const DEFAULT_AUTHOR_PORT = '4502';
+const DEFAULT_PUBLISH_PORT = '4503';
+
+/**
+ * Gets port settings from storage with defaults
+ * @returns {Promise<{authorPort: string, publishPort: string}>}
+ */
+export async function getPortSettings() {
+  return new Promise((resolve) => {
+    // Check if chrome API is available
+    if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
+      resolve({
+        authorPort: DEFAULT_AUTHOR_PORT,
+        publishPort: DEFAULT_PUBLISH_PORT
+      });
+      return;
+    }
+
+    try {
+      chrome.storage.sync.get(['authorPort', 'publishPort'], (result) => {
+        // Check for errors
+        if (chrome.runtime?.lastError) {
+          console.warn('Error getting settings:', chrome.runtime.lastError);
+          resolve({
+            authorPort: DEFAULT_AUTHOR_PORT,
+            publishPort: DEFAULT_PUBLISH_PORT
+          });
+          return;
+        }
+
+        resolve({
+          authorPort: result.authorPort || DEFAULT_AUTHOR_PORT,
+          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT
+        });
+      });
+    } catch (error) {
+      console.warn('Error accessing storage:', error);
+      resolve({
+        authorPort: DEFAULT_AUTHOR_PORT,
+        publishPort: DEFAULT_PUBLISH_PORT
+      });
+    }
+  });
+}
+
 /**
  * Shows a message in the popup message area.
  * @param {string} text - Message to display
@@ -77,14 +122,19 @@ export function getContentPath(url) {
 /**
  * Determines if the URL is author or publish system.
  * @param {string} url
+ * @param {object} [settings] - Optional port settings {authorPort, publishPort}
  * @returns {'author'|'publish'|null}
  */
-export function getAemSystemType(url) {
+export function getAemSystemType(url, settings = null) {
   try {
     const u = new URL(url);
     if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
-      if (u.port === '4502') return 'author';
-      if (u.port === '4503') return 'publish';
+      // Use configured ports if provided, otherwise use defaults
+      const authorPort = settings?.authorPort || DEFAULT_AUTHOR_PORT;
+      const publishPort = settings?.publishPort || DEFAULT_PUBLISH_PORT;
+
+      if (u.port === authorPort) return 'author';
+      if (u.port === publishPort) return 'publish';
       return null;
     }
     const authorPattern = /^author-p\w+-e\w+\.adobeaemcloud\.com$/;
@@ -152,5 +202,6 @@ export function getValidContentPath(tab, onSuccess, onError) {
   }
 }
 
-export const PORT_AUTHOR = '4502';
-export const PORT_PUBLISH = '4503';
+// Legacy constants for backward compatibility (kept for tests)
+export const PORT_AUTHOR = DEFAULT_AUTHOR_PORT;
+export const PORT_PUBLISH = DEFAULT_PUBLISH_PORT;

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEM QuickLinks Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AEM QuickLinks Settings</h1>
+      <p class="subtitle">Configure default ports for your AEM instances</p>
+    </header>
+
+    <main>
+      <form id="settingsForm">
+        <div class="form-group">
+          <label for="authorPort">
+            <span class="label-text">Author Port</span>
+            <span class="label-description">Default port for AEM Author instance</span>
+          </label>
+          <input
+            type="text"
+            id="authorPort"
+            name="authorPort"
+            placeholder="4502"
+            pattern="[0-9]*"
+            maxlength="5"
+          >
+          <span class="help-text">Leave blank for default (4502)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="publishPort">
+            <span class="label-text">Publish Port</span>
+            <span class="label-description">Default port for AEM Publish instance</span>
+          </label>
+          <input
+            type="text"
+            id="publishPort"
+            name="publishPort"
+            placeholder="4503"
+            pattern="[0-9]*"
+            maxlength="5"
+          >
+          <span class="help-text">Leave blank for default (4503)</span>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+          <button type="button" id="resetBtn" class="btn btn-secondary">Reset to Defaults</button>
+        </div>
+
+        <div id="message" class="message"></div>
+      </form>
+
+      <div class="info-section">
+        <h2>About</h2>
+        <p>These settings control the default ports used when opening AEM tools on localhost.</p>
+        <ul>
+          <li><strong>Author Port (4502):</strong> Used for CRXDE, Package Manager, Config Manager, etc.</li>
+          <li><strong>Publish Port (4503):</strong> Used when opening publish instance or publish login</li>
+        </ul>
+        <p class="note"><strong>Note:</strong> These settings only affect localhost connections. AEM Cloud instances use their default configurations.</p>
+      </div>
+    </main>
+
+    <footer>
+      <p>AEM QuickLinks Extension v1.0</p>
+    </footer>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

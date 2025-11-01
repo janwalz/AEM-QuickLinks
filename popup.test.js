@@ -5,6 +5,17 @@ global.chrome = {
   tabs: {
     query: jest.fn(),
     create: jest.fn()
+  },
+  storage: {
+    sync: {
+      get: jest.fn((keys, callback) => {
+        // Default to empty object, which will use defaults
+        callback({});
+      }),
+      set: jest.fn((data, callback) => {
+        if (callback) callback();
+      })
+    }
   }
 };
 

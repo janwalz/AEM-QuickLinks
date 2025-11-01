@@ -7,6 +7,7 @@ import {
   openAemTool,
   withValidAemTab,
   getValidContentPath,
+  getPortSettings,
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
@@ -16,7 +17,19 @@ global.chrome = {
   tabs: {
     query: jest.fn(),
     create: jest.fn()
-  }
+  },
+  storage: {
+    sync: {
+      get: jest.fn((keys, callback) => {
+        // Default to empty object, which will use defaults
+        callback({});
+      }),
+      set: jest.fn((data, callback) => {
+        if (callback) callback();
+      })
+    }
+  },
+  runtime: {}
 };
 
 describe('aemHelpers', () => {
@@ -25,6 +38,86 @@ describe('aemHelpers', () => {
     document.body.innerHTML = '<div id="message"></div>';
     // Reset mocks
     jest.clearAllMocks();
+    // Ensure chrome.runtime exists and has no lastError
+    chrome.runtime = {};
+  });
+
+  describe('getPortSettings', () => {
+    it('should return default ports when storage is empty', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
+      });
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('4503');
+    });
+
+    it('should return custom ports when stored', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ authorPort: '5502', publishPort: '5503' });
+      });
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('5502');
+      expect(settings.publishPort).toBe('5503');
+    });
+
+    it('should use default for missing authorPort', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ publishPort: '5503' });
+      });
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('5503');
+    });
+
+    it('should use default for missing publishPort', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ authorPort: '5502' });
+      });
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('5502');
+      expect(settings.publishPort).toBe('4503');
+    });
+
+    it('should handle chrome.runtime.lastError', async () => {
+      // Suppress console.warn for this test
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        chrome.runtime = { lastError: new Error('Storage error') };
+        callback({});
+      });
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('4503');
+
+      // Verify warning was called
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Error getting settings:',
+        expect.any(Error)
+      );
+
+      // Clean up
+      consoleWarnSpy.mockRestore();
+      chrome.runtime = {};
+    });
+
+    it('should handle missing chrome.storage.sync', async () => {
+      const originalSync = chrome.storage.sync;
+      delete chrome.storage.sync;
+
+      const settings = await getPortSettings();
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('4503');
+
+      // Restore
+      chrome.storage.sync = originalSync;
+    });
   });
 
   describe('showMessage', () => {
@@ -156,6 +249,27 @@ describe('aemHelpers', () => {
 
     it('should return null for localhost with different port', () => {
       expect(getAemSystemType('http://localhost:8080')).toBe(null);
+    });
+
+    it('should use custom author port when provided', () => {
+      const settings = { authorPort: '5502', publishPort: '5503' };
+      expect(getAemSystemType('http://localhost:5502', settings)).toBe('author');
+    });
+
+    it('should use custom publish port when provided', () => {
+      const settings = { authorPort: '5502', publishPort: '5503' };
+      expect(getAemSystemType('http://localhost:5503', settings)).toBe('publish');
+    });
+
+    it('should return null for default port when custom ports are configured', () => {
+      const settings = { authorPort: '5502', publishPort: '5503' };
+      expect(getAemSystemType('http://localhost:4502', settings)).toBe(null);
+    });
+
+    it('should work with 127.0.0.1 and custom ports', () => {
+      const settings = { authorPort: '5502', publishPort: '5503' };
+      expect(getAemSystemType('http://127.0.0.1:5502', settings)).toBe('author');
+      expect(getAemSystemType('http://127.0.0.1:5503', settings)).toBe('publish');
     });
 
     it('should return "author" for AEM Cloud author URL', () => {

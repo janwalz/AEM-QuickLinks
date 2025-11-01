@@ -5,8 +5,7 @@ import {
   withValidAemTab,
   getValidContentPath,
   getContentPath,
-  PORT_AUTHOR,
-  PORT_PUBLISH
+  getPortSettings
 } from './aemHelpers.js';
 
 // --- UI State Manager ---
@@ -48,28 +47,31 @@ class PopupState {
 
 // --- Button Action Handlers ---
 const BUTTON_HANDLERS = {
-  btnCrxde: () => {
-    openAemTool('/crx/de', PORT_AUTHOR, 'Opening CRXDE...');
+  btnCrxde: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
   },
 
-  btnCrxdeCurrent: () => {
+  btnCrxdeCurrent: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
       const contentPath = getContentPath(tab.url);
       if (contentPath) {
         // Open CRXDE with current page path
         const cleanPath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
         const crxdeHash = '#/' + cleanPath.replace(/^\//, '');
-        openAemTool('/crx/de/index.jsp' + crxdeHash, PORT_AUTHOR, 'Opening CRXDE for current page...');
+        openAemTool('/crx/de/index.jsp' + crxdeHash, settings.authorPort, 'Opening CRXDE for current page...');
       } else {
         // Fall back to standard CRXDE if no content page detected
-        openAemTool('/crx/de', PORT_AUTHOR, 'Opening CRXDE...');
+        openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
       }
     });
   },
 
-  btnOpenPublish: () => {
+  btnOpenPublish: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
-      const systemType = getAemSystemType(tab.url);
+      const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
         return;
@@ -78,17 +80,18 @@ const BUTTON_HANDLERS = {
         let publishPort = new URL(tab.url).port;
         if (systemType === 'author') {
           if (['localhost', '127.0.0.1'].includes(new URL(tab.url).hostname)) {
-            publishPort = PORT_PUBLISH;
+            publishPort = settings.publishPort;
           }
         }
-        openAemTool(contentPath, publishPort || PORT_PUBLISH, 'Opening publish for current page...');
+        openAemTool(contentPath, publishPort || settings.publishPort, 'Opening publish for current page...');
       });
     });
   },
 
-  btnOpenAuthor: () => {
+  btnOpenAuthor: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
-      const systemType = getAemSystemType(tab.url);
+      const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
         return;
@@ -97,56 +100,64 @@ const BUTTON_HANDLERS = {
         let authorPort = new URL(tab.url).port;
         if (systemType === 'publish') {
           if (['localhost', '127.0.0.1'].includes(new URL(tab.url).hostname)) {
-            authorPort = PORT_AUTHOR;
+            authorPort = settings.authorPort;
           }
         }
-        openAemTool(contentPath, authorPort || PORT_AUTHOR, 'Opening author for current page...');
+        openAemTool(contentPath, authorPort || settings.authorPort, 'Opening author for current page...');
       });
     });
   },
 
-  btnEditView: () => {
+  btnEditView: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
       getValidContentPath(tab, contentPath => {
-        openAemTool('/editor.html' + contentPath, PORT_AUTHOR, 'Opening edit view for current page...');
+        openAemTool('/editor.html' + contentPath, settings.authorPort, 'Opening edit view for current page...');
       });
     });
   },
 
-  btnPackMgr: () => {
-    openAemTool('/crx/packmgr', PORT_AUTHOR, 'Opening Package Manager...');
+  btnPackMgr: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/crx/packmgr', settings.authorPort, 'Opening Package Manager...');
   },
 
-  btnReplicationAgent: () => {
-    openAemTool('/etc/replication/agents.author/publish.html', PORT_AUTHOR, 'Opening Replication Default Agent...');
+  btnReplicationAgent: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/etc/replication/agents.author/publish.html', settings.authorPort, 'Opening Replication Default Agent...');
   },
 
-  btnLoginPublish: () => {
-    openAemTool('/libs/granite/core/content/login.html', PORT_PUBLISH, 'Opening Login on Publish...');
+  btnLoginPublish: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/libs/granite/core/content/login.html', settings.publishPort, 'Opening Login on Publish...');
   },
 
-  btnConfigMgr: () => {
-    openAemTool('/system/console/configMgr', PORT_AUTHOR, 'Opening Config Manager...');
+  btnConfigMgr: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/system/console/configMgr', settings.authorPort, 'Opening Config Manager...');
   },
 
-  btnGroovyConsole: () => {
-    openAemTool('/groovyconsole', PORT_AUTHOR, 'Opening Groovy Console...');
+  btnGroovyConsole: async () => {
+    const settings = await getPortSettings();
+    openAemTool('/groovyconsole', settings.authorPort, 'Opening Groovy Console...');
   },
 
-  btnViewAsPublished: () => {
+  btnViewAsPublished: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
       getValidContentPath(tab, contentPath => {
-        openAemTool(contentPath + '?wcmmode=disabled', PORT_AUTHOR, 'Opening as published...');
+        openAemTool(contentPath + '?wcmmode=disabled', settings.authorPort, 'Opening as published...');
       });
     });
   },
 
-  btnPageProperties: () => {
+  btnPageProperties: async () => {
+    const settings = await getPortSettings();
     withValidAemTab(tab => {
       getValidContentPath(tab, contentPath => {
         // Remove file extension and add /jcr:content.html for page properties
         const pagePath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
-        openAemTool('/mnt/override/apps/wcm/core/content/sites/properties.html?item=' + pagePath, PORT_AUTHOR, 'Opening page properties...');
+        openAemTool('/mnt/override/apps/wcm/core/content/sites/properties.html?item=' + pagePath, settings.authorPort, 'Opening page properties...');
       });
     });
   }
