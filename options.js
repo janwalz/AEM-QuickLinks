@@ -12,7 +12,9 @@ const DEFAULT_PUBLISH_PORT = '4503';
  *   pattern: string (URL pattern with * wildcard),
  *   authorPort: string,
  *   publishPort: string,
- *   dispatcherUrl: string
+ *   dispatcherUrl: string,
+ *   orgId: string (optional - Adobe Organization ID),
+ *   programId: string (optional - AEM Cloud Program ID)
  * }
  */
 
@@ -200,6 +202,12 @@ function renderProjects(projects) {
         <div class="project-detail">
           <strong>Dispatcher:</strong> ${project.dispatcherUrl ? escapeHtml(project.dispatcherUrl) : 'Not set'}
         </div>
+        ${project.orgId ? `<div class="project-detail">
+          <strong>Org ID:</strong> ${escapeHtml(project.orgId)}
+        </div>` : ''}
+        ${project.programId ? `<div class="project-detail">
+          <strong>Program ID:</strong> ${escapeHtml(project.programId)}
+        </div>` : ''}
       </div>
     </div>
   `).join('');
@@ -253,6 +261,8 @@ async function editProject(projectId) {
   document.getElementById('authorPort').value = project.authorPort === DEFAULT_AUTHOR_PORT ? '' : project.authorPort;
   document.getElementById('publishPort').value = project.publishPort === DEFAULT_PUBLISH_PORT ? '' : project.publishPort;
   document.getElementById('dispatcherUrl').value = project.dispatcherUrl || '';
+  document.getElementById('orgId').value = project.orgId || '';
+  document.getElementById('programId').value = project.programId || '';
 
   document.getElementById('projectModal').style.display = 'flex';
   document.getElementById('projectName').focus();
@@ -300,6 +310,8 @@ async function handleProjectSubmit(e) {
   const authorPort = document.getElementById('authorPort').value.trim();
   const publishPort = document.getElementById('publishPort').value.trim();
   const dispatcherUrl = document.getElementById('dispatcherUrl').value.trim();
+  const orgId = document.getElementById('orgId').value.trim();
+  const programId = document.getElementById('programId').value.trim();
 
   // Validate inputs
   if (!projectName) {
@@ -336,7 +348,9 @@ async function handleProjectSubmit(e) {
       pattern: projectPattern,
       authorPort: authorPort || DEFAULT_AUTHOR_PORT,
       publishPort: publishPort || DEFAULT_PUBLISH_PORT,
-      dispatcherUrl: dispatcherUrl
+      dispatcherUrl: dispatcherUrl,
+      orgId: orgId,
+      programId: programId
     };
 
     if (projectId) {

@@ -98,7 +98,7 @@ function matchesPattern(hostname, pattern) {
 /**
  * Gets settings for the current URL with project-based config
  * @param {string} [currentUrl] - Optional URL to match (defaults to current tab)
- * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
+ * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string, orgId: string, programId: string}>}
  */
 export async function getPortSettings(currentUrl = null) {
   const projects = await getProjects();
@@ -110,7 +110,9 @@ export async function getPortSettings(currentUrl = null) {
       return {
         authorPort: project.authorPort || DEFAULT_AUTHOR_PORT,
         publishPort: project.publishPort || DEFAULT_PUBLISH_PORT,
-        dispatcherUrl: project.dispatcherUrl || ''
+        dispatcherUrl: project.dispatcherUrl || '',
+        orgId: project.orgId || '',
+        programId: project.programId || ''
       };
     }
   }
@@ -119,7 +121,9 @@ export async function getPortSettings(currentUrl = null) {
   return {
     authorPort: DEFAULT_AUTHOR_PORT,
     publishPort: DEFAULT_PUBLISH_PORT,
-    dispatcherUrl: ''
+    dispatcherUrl: '',
+    orgId: '',
+    programId: ''
   };
 }
 
@@ -317,6 +321,95 @@ function showDispatcherNotConfiguredError() {
       });
     }
   }
+}
+
+/**
+ * Shows error message with link to settings when AEM Cloud settings are not configured
+ * @param {string} message - Error message to display
+ */
+export function showCloudNotConfiguredError(message = 'AEM Cloud settings not configured') {
+  const msg = document.getElementById('message');
+  if (msg) {
+    msg.innerHTML = `${message}. <a href="#" id="openSettings" style="color: #667eea; text-decoration: underline;">Open Settings</a>`;
+    msg.classList.add('mint');
+
+    // Add click handler for settings link
+    const settingsLink = document.getElementById('openSettings');
+    if (settingsLink) {
+      settingsLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.runtime.openOptionsPage();
+      });
+    }
+  }
+}
+
+/**
+ * Builds AEM Cloud Console URL
+ * @param {string} orgId - Adobe Organization ID
+ * @param {string} [programId] - Optional program ID
+ * @param {string} [path] - Optional path after program (e.g., 'environments', 'pipelines')
+ * @returns {string} - Full Cloud Console URL
+ */
+export function buildCloudConsoleUrl(orgId, programId = null, path = null) {
+  let url = `https://experience.adobe.com/#/@${orgId}/cloud-manager`;
+
+  if (programId) {
+    if (path) {
+      url += `/${path}.html/program/${programId}`;
+    } else {
+      url += `/home.html/program/${programId}`;
+    }
+  } else {
+    url += '/home.html';
+  }
+
+  return url;
+}
+
+/**
+ * Opens AEM Cloud Console tool
+ * @param {string} path - Path type (e.g., 'home', 'programs', 'environments', 'pipelines', 'activity')
+ * @param {string} message - Message to display
+ */
+export async function openCloudTool(path, message) {
+  chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+    const tab = tabs[0];
+    const settings = await getPortSettings(tab?.url);
+
+    if (!settings.orgId) {
+      showCloudNotConfiguredError('Organization ID not configured');
+      return;
+    }
+
+    let url;
+
+    switch(path) {
+      case 'home':
+        url = buildCloudConsoleUrl(settings.orgId);
+        break;
+      case 'programs':
+        url = `https://experience.adobe.com/#/@${settings.orgId}/cloud-manager/programs.html`;
+        break;
+      case 'environments':
+      case 'pipelines':
+      case 'activity':
+        if (!settings.programId) {
+          showCloudNotConfiguredError('Program ID not configured');
+          return;
+        }
+        url = buildCloudConsoleUrl(settings.orgId, settings.programId, path);
+        break;
+      default:
+        showMessage('Unknown cloud tool', true);
+        return;
+    }
+
+    chrome.tabs.create({ url });
+    showMessage(message, false);
+    // Close popup after successful action
+    setTimeout(() => window.close(), 100);
+  });
 }
 
 // Legacy constants for backward compatibility (kept for tests)

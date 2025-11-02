@@ -7,6 +7,8 @@ A Chrome extension for quick access to AEM (Adobe Experience Manager) tools and 
 ## Features
 
 ### Main Menu Actions
+- **Current Page** - Submenu with page-specific actions (see below)
+- **AEM Cloud** - Submenu with AEM Cloud Manager tools (see below)
 - **CRXDE** - Open CRXDE Lite
 - **Package Manager** - Access the CRX Package Manager
 - **OSGi Config** - Open the OSGi Configuration Manager
@@ -24,6 +26,14 @@ When on an AEM content page, access additional context-aware actions:
 - **Open in Edit View** - Opens the page in AEM's Page Editor
 - **View as Published** - Opens the page with `wcmmode=disabled` parameter
 - **Open Page Properties** - Access the page properties dialog
+
+### AEM Cloud Submenu
+Quick access to AEM Cloud Manager console tools (requires Organization ID and Program ID configuration):
+- **Cloud Manager Overview** - Open the Cloud Manager home page
+- **Programs** - View all your AEM Cloud programs
+- **Environments** - Access the environments for your configured program
+- **Pipelines** - Manage and run CI/CD pipelines
+- **Activity** - View deployment and pipeline activity history
 
 ### Additional Features
 - **Searchable Actions** - Type to filter and quickly find any action
@@ -77,6 +87,8 @@ The extension supports multiple project configurations with automatic URL matchi
    - **Author Port** (default: 4502) - Port for Author instance
    - **Publish Port** (default: 4503) - Port for Publish instance
    - **Dispatcher URL** - Base URL for your Dispatcher (e.g., https://www.yoursite.com)
+   - **Adobe Organization ID** (optional) - Your Adobe organization ID for Cloud Manager links (e.g., `1234567@AdobeOrg`)
+   - **AEM Cloud Program ID** (optional) - Your Cloud Manager program ID for direct environment/pipeline links
 4. The extension automatically detects which project to use based on the current URL
 
 ### Pattern Matching
@@ -101,7 +113,25 @@ You can configure multiple projects with the same `localhost` pattern but differ
 
 If you're upgrading from a previous version, your old settings will be automatically migrated to a "Default Project" with a localhost pattern.
 
-**Important:** The Dispatcher URL must be configured to use dispatcher-related buttons. If not set, you'll see an error with a link to the settings page.
+### Finding Your Cloud Manager IDs
+
+To use the AEM Cloud Console features, you need to configure your Organization ID and Program ID:
+
+1. **Organization ID**:
+   - Log in to [Adobe Experience Cloud](https://experience.adobe.com)
+   - Look at the URL - it will contain your org ID (format: `1234567@AdobeOrg`)
+   - Or find it in Cloud Manager URL: `https://experience.adobe.com/#/@{orgId}/cloud-manager/...`
+
+2. **Program ID**:
+   - Open Cloud Manager and select your program
+   - The URL will show the program ID: `.../program/{programId}`
+   - Usually a numeric value like `12345`
+
+**Important Notes:**
+- The Dispatcher URL must be configured to use dispatcher-related buttons
+- Organization ID is required for all AEM Cloud Console tools
+- Program ID is required for Environments, Pipelines, and Activity tools
+- If not configured, you'll see an error with a link to the settings page
 
 ## Development
 

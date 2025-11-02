@@ -115,6 +115,34 @@
               <span class="help-text">Include protocol (https://) but no trailing slash</span>
             </div>
 
+            <div class="form-group">
+              <label for="orgId">
+                <span class="label-text">Adobe Organization ID</span>
+                <span class="label-description">Your Adobe organization ID (for AEM Cloud Console links)</span>
+              </label>
+              <input
+                type="text"
+                id="orgId"
+                name="orgId"
+                placeholder="1234567@AdobeOrg"
+              >
+              <span class="help-text">Optional - Required for AEM Cloud Console tools</span>
+            </div>
+
+            <div class="form-group">
+              <label for="programId">
+                <span class="label-text">AEM Cloud Program ID</span>
+                <span class="label-description">Your AEM Cloud Manager program ID</span>
+              </label>
+              <input
+                type="text"
+                id="programId"
+                name="programId"
+                placeholder="12345"
+              >
+              <span class="help-text">Optional - Required for AEM Cloud Console tools</span>
+            </div>
+
             <div class="button-group">
               <button type="submit" class="btn btn-primary">Save Project</button>
               <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
@@ -132,6 +160,7 @@
           <li><strong>URL Pattern:</strong> Matches the hostname. Use * as wildcard (e.g., *.adobeaemcloud.com matches all AEM Cloud URLs)</li>
           <li><strong>Author/Publish Ports:</strong> Used for localhost connections</li>
           <li><strong>Dispatcher URL:</strong> Base URL for your production/staging site</li>
+          <li><strong>Organization ID & Program ID:</strong> Required for AEM Cloud Console links (find these in your Cloud Manager URL)</li>
         </ul>
         <p class="note"><strong>Tip:</strong> Create separate projects for local development, staging, and production environments.</p>
       </div>
