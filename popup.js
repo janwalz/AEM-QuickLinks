@@ -6,7 +6,8 @@ import {
   getValidContentPath,
   getContentPath,
   getPortSettings,
-  openDispatcher
+  openDispatcher,
+  openCloudTool
 } from './aemHelpers.js';
 
 // --- UI State Manager ---
@@ -44,18 +45,25 @@ class PopupState {
   isSubmenu() {
     return this.currentMenu === 'submenu';
   }
+
+  isCloudMenu() {
+    return this.currentMenu === 'cloudmenu';
+  }
 }
 
 // --- Button Action Handlers ---
 const BUTTON_HANDLERS = {
   btnCrxde: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/crx/de', settings.authorPort, 'Opening CRXDE...');
+    });
   },
 
   btnCrxdeCurrent: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const contentPath = getContentPath(tab.url);
       if (contentPath) {
         // Open CRXDE with current page path
@@ -70,8 +78,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnOpenPublish: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
@@ -90,8 +98,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnOpenAuthor: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       const systemType = getAemSystemType(tab.url, settings);
       if (!systemType) {
         showMessage('Not an AEM or localhost URL!', true);
@@ -110,8 +118,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnEditView: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openAemTool('/editor.html' + contentPath, settings.authorPort, 'Opening edit view for current page...');
       });
@@ -119,33 +127,48 @@ const BUTTON_HANDLERS = {
   },
 
   btnPackMgr: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/crx/packmgr', settings.authorPort, 'Opening Package Manager...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/crx/packmgr', settings.authorPort, 'Opening Package Manager...');
+    });
   },
 
   btnReplicationAgent: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/etc/replication/agents.author/publish.html', settings.authorPort, 'Opening Replication Default Agent...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/etc/replication/agents.author/publish.html', settings.authorPort, 'Opening Replication Default Agent...');
+    });
   },
 
   btnLoginPublish: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/libs/granite/core/content/login.html', settings.publishPort, 'Opening Login on Publish...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/libs/granite/core/content/login.html', settings.publishPort, 'Opening Login on Publish...');
+    });
   },
 
   btnConfigMgr: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/system/console/configMgr', settings.authorPort, 'Opening Config Manager...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/system/console/configMgr', settings.authorPort, 'Opening Config Manager...');
+    });
   },
 
   btnGroovyConsole: async () => {
-    const settings = await getPortSettings();
-    openAemTool('/groovyconsole', settings.authorPort, 'Opening Groovy Console...');
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openAemTool('/groovyconsole', settings.authorPort, 'Opening Groovy Console...');
+    });
   },
 
   btnViewAsPublished: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openAemTool(contentPath + '?wcmmode=disabled', settings.authorPort, 'Opening as published...');
       });
@@ -153,8 +176,8 @@ const BUTTON_HANDLERS = {
   },
 
   btnPageProperties: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         // Remove file extension and add /jcr:content.html for page properties
         const pagePath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
@@ -164,17 +187,40 @@ const BUTTON_HANDLERS = {
   },
 
   btnDispatcher: async () => {
-    const settings = await getPortSettings();
-    openDispatcher(settings.dispatcherUrl);
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const tab = tabs[0];
+      const settings = await getPortSettings(tab?.url);
+      openDispatcher(settings.dispatcherUrl);
+    });
   },
 
   btnDispatcherCurrent: async () => {
-    const settings = await getPortSettings();
-    withValidAemTab(tab => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
       getValidContentPath(tab, contentPath => {
         openDispatcher(settings.dispatcherUrl, contentPath);
       }, 'No content page detected!');
     });
+  },
+
+  btnCloudOverview: async () => {
+    openCloudTool('home', 'Opening Cloud Manager Overview...');
+  },
+
+  btnCloudPrograms: async () => {
+    openCloudTool('programs', 'Opening Programs...');
+  },
+
+  btnCloudEnvironments: async () => {
+    openCloudTool('environments', 'Opening Environments...');
+  },
+
+  btnCloudPipelines: async () => {
+    openCloudTool('pipelines', 'Opening Pipelines...');
+  },
+
+  btnCloudActivity: async () => {
+    openCloudTool('activity', 'Opening Activity...');
   }
 };
 
@@ -183,11 +229,20 @@ function showSubmenu(elements, state) {
   state.setMenu('submenu');
   elements.actionList.style.display = 'none';
   elements.currentPageMenu.style.display = 'block';
+  elements.aemCloudMenu.style.display = 'none';
+}
+
+function showCloudMenu(elements, state) {
+  state.setMenu('cloudmenu');
+  elements.actionList.style.display = 'none';
+  elements.currentPageMenu.style.display = 'none';
+  elements.aemCloudMenu.style.display = 'block';
 }
 
 function showMainMenu(elements, state) {
   state.setMenu('main');
   elements.currentPageMenu.style.display = 'none';
+  elements.aemCloudMenu.style.display = 'none';
   elements.actionList.style.display = 'block';
 }
 
@@ -215,7 +270,15 @@ function updateSelection(allButtons, filteredButtons, selectedIndex, state) {
 }
 
 function updateSelectionForCurrentMenu(elements, allButtons, state) {
-  const filteredBtns = state.isMainMenu() ? elements.buttons : elements.submenuButtons;
+  let filteredBtns;
+  if (state.isMainMenu()) {
+    filteredBtns = elements.buttons;
+  } else if (state.isCloudMenu()) {
+    filteredBtns = elements.cloudMenuButtons;
+  } else {
+    filteredBtns = elements.submenuButtons;
+  }
+
   const visibleBtns = filteredBtns.filter(btn => btn.style.display !== 'none');
 
   // Remove selection from all buttons
@@ -236,10 +299,11 @@ function handleSearch(searchValue, elements, allButtons, state) {
   const val = searchValue.trim().toLowerCase();
   let mainVisible = 0;
   let subVisible = 0;
+  let cloudVisible = 0;
 
   // Search main menu
   elements.buttons.forEach(btn => {
-    if (btn.id === 'btnCurrentPageMenu') {
+    if (btn.id === 'btnCurrentPageMenu' || btn.id === 'btnAemCloudMenu') {
       btn.style.display = val ? 'none' : '';
       return;
     }
@@ -267,31 +331,52 @@ function handleSearch(searchValue, elements, allButtons, state) {
     }
   });
 
+  // Search cloud menu - hide back button when searching
+  elements.cloudMenuButtons.forEach(btn => {
+    if (btn.id === 'btnGoBackCloud') {
+      btn.style.display = val ? 'none' : '';
+      return;
+    }
+    const text = btn.textContent.toLowerCase();
+    if (text.includes(val)) {
+      btn.style.display = '';
+      cloudVisible++;
+    } else {
+      btn.style.display = 'none';
+    }
+  });
+
   // Show/hide menus based on matches
   if (val) {
-    if (subVisible > 0 && mainVisible === 0) {
-      showSubmenu(elements, state);
-    } else if (mainVisible > 0 && subVisible === 0) {
-      showMainMenu(elements, state);
-    } else if (mainVisible > 0 && subVisible > 0) {
-      elements.actionList.style.display = 'block';
-      elements.currentPageMenu.style.display = 'block';
-    } else {
+    const totalVisible = mainVisible + subVisible + cloudVisible;
+    if (totalVisible === 0) {
       elements.actionList.style.display = 'none';
       elements.currentPageMenu.style.display = 'none';
+      elements.aemCloudMenu.style.display = 'none';
+    } else if (mainVisible > 0 && subVisible === 0 && cloudVisible === 0) {
+      showMainMenu(elements, state);
+    } else if (subVisible > 0 && mainVisible === 0 && cloudVisible === 0) {
+      showSubmenu(elements, state);
+    } else if (cloudVisible > 0 && mainVisible === 0 && subVisible === 0) {
+      showCloudMenu(elements, state);
+    } else {
+      // Show all menus with matches
+      elements.actionList.style.display = mainVisible > 0 ? 'block' : 'none';
+      elements.currentPageMenu.style.display = subVisible > 0 ? 'block' : 'none';
+      elements.aemCloudMenu.style.display = cloudVisible > 0 ? 'block' : 'none';
     }
   } else {
     showMainMenu(elements, state);
   }
 
-  // Get all visible action buttons - exclude back button from search results
+  // Get all visible action buttons - exclude back buttons from search results
   let filteredBtns;
   if (val) {
-    filteredBtns = [...elements.buttons, ...elements.submenuButtons].filter(btn =>
-      btn.style.display !== 'none' && btn.id !== 'btnGoBack'
+    filteredBtns = [...elements.buttons, ...elements.submenuButtons, ...elements.cloudMenuButtons].filter(btn =>
+      btn.style.display !== 'none' && btn.id !== 'btnGoBack' && btn.id !== 'btnGoBackCloud'
     );
   } else {
-    filteredBtns = [...elements.buttons, ...elements.submenuButtons].filter(btn =>
+    filteredBtns = [...elements.buttons, ...elements.submenuButtons, ...elements.cloudMenuButtons].filter(btn =>
       btn.style.display !== 'none'
     );
   }
@@ -328,9 +413,14 @@ function handleKeydown(e, elements, allButtons, state) {
       if (selectedIndex >= 0 && selectedIndex < filteredBtns.length) {
         const selectedBtn = filteredBtns[selectedIndex];
 
-        // Special handling for Current Page Menu button
+        // Special handling for menu buttons
         if (selectedBtn.id === 'btnCurrentPageMenu') {
           showSubmenu(elements, state);
+          setTimeout(() => {
+            updateSelectionForCurrentMenu(elements, allButtons, state);
+          }, 10);
+        } else if (selectedBtn.id === 'btnAemCloudMenu') {
+          showCloudMenu(elements, state);
           setTimeout(() => {
             updateSelectionForCurrentMenu(elements, allButtons, state);
           }, 10);
@@ -343,8 +433,8 @@ function handleKeydown(e, elements, allButtons, state) {
     case 'Escape':
       e.preventDefault();
 
-      if (state.isSubmenu()) {
-        // In submenu, go back to main menu
+      if (state.isSubmenu() || state.isCloudMenu()) {
+        // In submenu or cloud menu, go back to main menu
         showMainMenu(elements, state);
         elements.search.value = '';
         setTimeout(() => {
@@ -415,13 +505,17 @@ document.addEventListener('DOMContentLoaded', () => {
     search: document.getElementById('actionSearch'),
     actionList: document.getElementById('actionList'),
     currentPageMenu: document.getElementById('currentPageMenu'),
+    aemCloudMenu: document.getElementById('aemCloudMenu'),
     btnCurrentPageMenu: document.getElementById('btnCurrentPageMenu'),
+    btnAemCloudMenu: document.getElementById('btnAemCloudMenu'),
     btnGoBack: document.getElementById('btnGoBack'),
+    btnGoBackCloud: document.getElementById('btnGoBackCloud'),
     buttons: Array.from(document.getElementById('actionList').querySelectorAll('button')),
-    submenuButtons: Array.from(document.getElementById('currentPageMenu').querySelectorAll('button'))
+    submenuButtons: Array.from(document.getElementById('currentPageMenu').querySelectorAll('button')),
+    cloudMenuButtons: Array.from(document.getElementById('aemCloudMenu').querySelectorAll('button'))
   };
 
-  const allButtons = [...elements.buttons, ...elements.submenuButtons];
+  const allButtons = [...elements.buttons, ...elements.submenuButtons, ...elements.cloudMenuButtons];
 
   // Focus search input
   elements.search.focus();
@@ -439,6 +533,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (elements.btnGoBack) {
     elements.btnGoBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      showMainMenu(elements, state);
+      setTimeout(() => {
+        updateSelectionForCurrentMenu(elements, allButtons, state);
+      }, 10);
+    });
+  }
+
+  // Cloud menu navigation
+  if (elements.btnAemCloudMenu) {
+    elements.btnAemCloudMenu.addEventListener('click', (e) => {
+      e.preventDefault();
+      showCloudMenu(elements, state);
+      setTimeout(() => {
+        updateSelectionForCurrentMenu(elements, allButtons, state);
+      }, 10);
+    });
+  }
+
+  if (elements.btnGoBackCloud) {
+    elements.btnGoBackCloud.addEventListener('click', (e) => {
       e.preventDefault();
       showMainMenu(elements, state);
       setTimeout(() => {

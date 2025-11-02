@@ -9,9 +9,14 @@ import {
   getValidContentPath,
   getPortSettings,
   openDispatcher,
+  matchUrlToProject,
+  buildCloudConsoleUrl,
+  openCloudTool,
+  showCloudNotConfiguredError,
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
+import { getProjects } from './options.js';
 
 // Mock Chrome API
 global.chrome = {
@@ -43,8 +48,233 @@ describe('aemHelpers', () => {
     chrome.runtime = {};
   });
 
+  describe('getProjects', () => {
+    it('should return empty array when storage is empty', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+    });
+
+    it('should return projects from storage', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Project 1',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual(mockProjects);
+    });
+
+    it('should handle chrome.runtime.lastError', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        chrome.runtime = { lastError: new Error('Storage error') };
+        callback({});
+      });
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+
+      consoleWarnSpy.mockRestore();
+      chrome.runtime = {};
+    });
+
+    it('should handle missing chrome.storage.sync', async () => {
+      const originalSync = chrome.storage.sync;
+      delete chrome.storage.sync;
+
+      const projects = await getProjects();
+      expect(projects).toEqual([]);
+
+      chrome.storage.sync = originalSync;
+    });
+  });
+
+  describe('matchUrlToProject', () => {
+    const projects = [
+      {
+        id: '1',
+        name: 'Local Project 4502',
+        pattern: 'localhost',
+        authorPort: '4502',
+        publishPort: '4503',
+        dispatcherUrl: 'https://localhost-dispatcher.com'
+      },
+      {
+        id: '2',
+        name: 'Local Project 5502',
+        pattern: 'localhost',
+        authorPort: '5502',
+        publishPort: '5503',
+        dispatcherUrl: 'https://localhost-5502-dispatcher.com'
+      },
+      {
+        id: '3',
+        name: 'AEM Cloud',
+        pattern: '*.adobeaemcloud.com',
+        authorPort: '4502',
+        publishPort: '4503',
+        dispatcherUrl: 'https://cloud-dispatcher.com'
+      },
+      {
+        id: '4',
+        name: 'Specific Project',
+        pattern: 'author-p12345-e67890.adobeaemcloud.com',
+        authorPort: '5502',
+        publishPort: '5503',
+        dispatcherUrl: 'https://specific-dispatcher.com'
+      }
+    ];
+
+    it('should match localhost with port 4502', () => {
+      const url = 'http://localhost:4502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[0]);
+      expect(matched.name).toBe('Local Project 4502');
+    });
+
+    it('should match localhost with port 4503 to same project as 4502', () => {
+      const url = 'http://localhost:4503/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[0]);
+      expect(matched.name).toBe('Local Project 4502');
+    });
+
+    it('should match localhost with port 5502', () => {
+      const url = 'http://localhost:5502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[1]);
+      expect(matched.name).toBe('Local Project 5502');
+    });
+
+    it('should match localhost with port 5503 to same project as 5502', () => {
+      const url = 'http://localhost:5503/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toEqual(projects[1]);
+      expect(matched.name).toBe('Local Project 5502');
+    });
+
+    it('should return null for localhost with non-matching port', () => {
+      const url = 'http://localhost:8080/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null for 127.0.0.1 when pattern is localhost', () => {
+      // 127.0.0.1 doesn't match pattern "localhost" - they need separate patterns
+      const url = 'http://127.0.0.1:5502/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should match 127.0.0.1 when pattern explicitly includes it', () => {
+      const projectsWithIP = [
+        {
+          id: '1',
+          name: 'Local IP Project',
+          pattern: '127.0.0.1',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://local-dispatcher.com'
+        }
+      ];
+
+      const url = 'http://127.0.0.1:5502/content/page.html';
+      const matched = matchUrlToProject(url, projectsWithIP);
+      expect(matched.name).toBe('Local IP Project');
+    });
+
+    it('should match wildcard pattern', () => {
+      const url = 'https://author-p99999-e88888.adobeaemcloud.com/editor.html/content/page';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched.name).toBe('AEM Cloud'); // Wildcard pattern matches
+    });
+
+    it('should match exact hostname (first match wins)', () => {
+      const url = 'https://author-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      // Both patterns match, but wildcard pattern comes first in array, so it wins
+      expect(matched).toEqual(projects[2]);
+    });
+
+    it('should return null for no match', () => {
+      const url = 'https://www.google.com';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null for invalid URL', () => {
+      const matched = matchUrlToProject('not-a-url', projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null when projects is empty', () => {
+      const url = 'http://localhost:4502';
+      const matched = matchUrlToProject(url, []);
+      expect(matched).toBe(null);
+    });
+
+    it('should return null when URL is null', () => {
+      const matched = matchUrlToProject(null, projects);
+      expect(matched).toBe(null);
+    });
+
+    it('should match subdomain with wildcard', () => {
+      const url = 'https://publish-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      expect(matched.pattern).toBe('*.adobeaemcloud.com');
+    });
+
+    it('should prioritize specific patterns when ordered correctly', () => {
+      // When projects are ordered with specific patterns first, they match first
+      const orderedProjects = [
+        {
+          id: '4',
+          name: 'Specific Project',
+          pattern: 'author-p12345-e67890.adobeaemcloud.com',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://specific-dispatcher.com'
+        },
+        {
+          id: '3',
+          name: 'AEM Cloud',
+          pattern: '*.adobeaemcloud.com',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: 'https://cloud-dispatcher.com'
+        }
+      ];
+
+      const url = 'https://author-p12345-e67890.adobeaemcloud.com/content/page.html';
+      const matched = matchUrlToProject(url, orderedProjects);
+      expect(matched.name).toBe('Specific Project');
+    });
+
+    it('should match localhost without port to first matching project', () => {
+      const url = 'http://localhost/content/page.html';
+      const matched = matchUrlToProject(url, projects);
+      // Without port, first localhost project matches
+      expect(matched.name).toBe('Local Project 4502');
+    });
+  });
+
   describe('getPortSettings', () => {
-    it('should return default ports when storage is empty', async () => {
+    it('should return default ports when no URL provided and storage is empty', async () => {
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
         callback({});
       });
@@ -55,39 +285,73 @@ describe('aemHelpers', () => {
       expect(settings.dispatcherUrl).toBe('');
     });
 
-    it('should return custom ports when stored', async () => {
+    it('should return project settings when URL matches', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ authorPort: '5502', publishPort: '5503', dispatcherUrl: 'https://example.com' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:5502/content/page.html');
       expect(settings.authorPort).toBe('5502');
       expect(settings.publishPort).toBe('5503');
       expect(settings.dispatcherUrl).toBe('https://example.com');
     });
 
-    it('should use default for missing authorPort', async () => {
+    it('should return defaults when URL does not match any project', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '5502',
+          publishPort: '5503',
+          dispatcherUrl: 'https://example.com'
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ publishPort: '5503' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('https://www.google.com');
       expect(settings.authorPort).toBe('4502');
-      expect(settings.publishPort).toBe('5503');
+      expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
     });
 
-    it('should use default for missing publishPort', async () => {
+    it('should use default ports when project has empty port values', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '',
+          publishPort: '',
+          dispatcherUrl: ''
+        }
+      ];
+
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ authorPort: '5502' });
+        callback({ projects: mockProjects });
       });
 
-      const settings = await getPortSettings();
-      expect(settings.authorPort).toBe('5502');
+      const settings = await getPortSettings('http://localhost:4502');
+      expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
     });
 
     it('should handle chrome.runtime.lastError', async () => {
-      // Suppress console.warn for this test
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
@@ -95,17 +359,10 @@ describe('aemHelpers', () => {
         callback({});
       });
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:4502');
       expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
 
-      // Verify warning was called
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Error getting settings:',
-        expect.any(Error)
-      );
-
-      // Clean up
       consoleWarnSpy.mockRestore();
       chrome.runtime = {};
     });
@@ -114,11 +371,10 @@ describe('aemHelpers', () => {
       const originalSync = chrome.storage.sync;
       delete chrome.storage.sync;
 
-      const settings = await getPortSettings();
+      const settings = await getPortSettings('http://localhost:4502');
       expect(settings.authorPort).toBe('4502');
       expect(settings.publishPort).toBe('4503');
 
-      // Restore
       chrome.storage.sync = originalSync;
     });
   });
@@ -293,11 +549,18 @@ describe('aemHelpers', () => {
   });
 
   describe('openAemTool', () => {
+    let originalSetTimeout;
+
     beforeEach(() => {
       // Mock window.close
       global.window.close = jest.fn();
       // Mock setTimeout to execute immediately
+      originalSetTimeout = global.setTimeout;
       global.setTimeout = jest.fn((cb) => cb());
+    });
+
+    afterEach(() => {
+      global.setTimeout = originalSetTimeout;
     });
 
     it('should open tool when valid AEM URL is present', () => {
@@ -352,7 +615,7 @@ describe('aemHelpers', () => {
   });
 
   describe('withValidAemTab', () => {
-    it('should call callback with valid AEM tab', () => {
+    it('should call callback with valid AEM tab', (done) => {
       const mockTabs = [{ url: 'http://localhost:4502/content/page.html' }];
       const callback = jest.fn();
 
@@ -365,10 +628,11 @@ describe('aemHelpers', () => {
       // Wait for async operation
       setTimeout(() => {
         expect(callback).toHaveBeenCalledWith(mockTabs[0]);
-      }, 0);
+        done();
+      }, 10);
     });
 
-    it('should show error for invalid tab', () => {
+    it('should show error for invalid tab', (done) => {
       const mockTabs = [{ url: 'https://www.google.com' }];
       const callback = jest.fn();
 
@@ -382,7 +646,8 @@ describe('aemHelpers', () => {
         expect(callback).not.toHaveBeenCalled();
         const msg = document.getElementById('message');
         expect(msg.textContent).toBe('Error: Not an AEM or localhost URL!');
-      }, 0);
+        done();
+      }, 10);
     });
   });
 
@@ -422,10 +687,17 @@ describe('aemHelpers', () => {
   });
 
   describe('openDispatcher', () => {
+    let originalSetTimeout;
+
     beforeEach(() => {
       global.window.close = jest.fn();
+      originalSetTimeout = global.setTimeout;
       global.setTimeout = jest.fn((cb) => cb());
       chrome.runtime.openOptionsPage = jest.fn();
+    });
+
+    afterEach(() => {
+      global.setTimeout = originalSetTimeout;
     });
 
     it('should open dispatcher with base URL only', () => {
@@ -485,6 +757,559 @@ describe('aemHelpers', () => {
     it('should export correct port constants', () => {
       expect(PORT_AUTHOR).toBe('4502');
       expect(PORT_PUBLISH).toBe('4503');
+    });
+  });
+
+  describe('getPortSettings with Cloud IDs', () => {
+    it('should return orgId and programId from matched project', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: '*.adobeaemcloud.com',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: 'https://example.com',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      const settings = await getPortSettings('https://author-p12345-e67890.adobeaemcloud.com/content/page.html');
+
+      expect(settings.orgId).toBe('1234567@AdobeOrg');
+      expect(settings.programId).toBe('12345');
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('https://example.com');
+    });
+
+    it('should return empty orgId and programId when not configured', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: ''
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      const settings = await getPortSettings('http://localhost:4502/content/page.html');
+
+      expect(settings.orgId).toBe('');
+      expect(settings.programId).toBe('');
+    });
+
+    it('should return default settings with empty cloud IDs when no URL match', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: [] });
+      });
+
+      const settings = await getPortSettings('http://localhost:4502/content/page.html');
+
+      expect(settings.authorPort).toBe('4502');
+      expect(settings.publishPort).toBe('4503');
+      expect(settings.dispatcherUrl).toBe('');
+      expect(settings.orgId).toBe('');
+      expect(settings.programId).toBe('');
+    });
+
+    it('should handle project with only orgId configured', async () => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Partial Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      const settings = await getPortSettings('http://localhost:4502/content/page.html');
+
+      expect(settings.orgId).toBe('1234567@AdobeOrg');
+      expect(settings.programId).toBe('');
+    });
+  });
+
+  describe('buildCloudConsoleUrl', () => {
+    it('should build home URL with only orgId', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg');
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html');
+    });
+
+    it('should build program home URL with orgId and programId', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', '12345');
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html/program/12345');
+    });
+
+    it('should build environments URL with all parameters', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', '12345', 'environments');
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/environments.html/program/12345');
+    });
+
+    it('should build pipelines URL with all parameters', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', '12345', 'pipelines');
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/pipelines.html/program/12345');
+    });
+
+    it('should build activity URL with all parameters', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', '12345', 'activity');
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/activity.html/program/12345');
+    });
+
+    it('should handle null programId gracefully', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', null);
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html');
+    });
+
+    it('should handle null path gracefully', () => {
+      const url = buildCloudConsoleUrl('1234567@AdobeOrg', '12345', null);
+      expect(url).toBe('https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html/program/12345');
+    });
+  });
+
+  describe('showCloudNotConfiguredError', () => {
+    beforeEach(() => {
+      chrome.runtime.openOptionsPage = jest.fn();
+    });
+
+    it('should show default error message with settings link', () => {
+      showCloudNotConfiguredError();
+
+      const msg = document.getElementById('message');
+      expect(msg.innerHTML).toContain('AEM Cloud settings not configured');
+      expect(msg.innerHTML).toContain('Open Settings');
+      expect(msg.classList.contains('mint')).toBe(true);
+    });
+
+    it('should show custom error message with settings link', () => {
+      showCloudNotConfiguredError('Organization ID not configured');
+
+      const msg = document.getElementById('message');
+      expect(msg.innerHTML).toContain('Organization ID not configured');
+      expect(msg.innerHTML).toContain('Open Settings');
+    });
+
+    it('should open settings when settings link is clicked', () => {
+      showCloudNotConfiguredError('Test error');
+
+      const settingsLink = document.getElementById('openSettings');
+      expect(settingsLink).toBeTruthy();
+
+      settingsLink.click();
+      expect(chrome.runtime.openOptionsPage).toHaveBeenCalled();
+    });
+
+    it('should create clickable link element', () => {
+      showCloudNotConfiguredError();
+
+      const settingsLink = document.getElementById('openSettings');
+      expect(settingsLink.tagName).toBe('A');
+      expect(settingsLink.style.color).toBe('rgb(102, 126, 234)');
+      expect(settingsLink.style.textDecoration).toBe('underline');
+    });
+  });
+
+  describe('openCloudTool', () => {
+    beforeEach(() => {
+      global.window.close = jest.fn();
+    });
+
+    it('should open home tool with only orgId', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: ''
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('home', 'Opening Cloud Manager Overview...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html'
+        });
+        expect(window.close).toHaveBeenCalled();
+        done();
+      }, 200);
+    });
+
+    it('should open programs tool with orgId', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: ''
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('programs', 'Opening Programs...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/programs.html'
+        });
+        done();
+      }, 200);
+    });
+
+    it('should open environments tool with orgId and programId', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('environments', 'Opening Environments...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/environments.html/program/12345'
+        });
+        done();
+      }, 200);
+    });
+
+    it('should open pipelines tool with orgId and programId', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('pipelines', 'Opening Pipelines...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/pipelines.html/program/12345'
+        });
+        done();
+      }, 200);
+    });
+
+    it('should open activity tool with orgId and programId', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('activity', 'Opening Activity...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/activity.html/program/12345'
+        });
+        done();
+      }, 200);
+    });
+
+    it('should show error when orgId is not configured', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Local Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: ''
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('home', 'Opening Cloud Manager Overview...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Organization ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should show error when programId is not configured for environments', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('environments', 'Opening Environments...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Program ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should show error when programId is not configured for pipelines', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('pipelines', 'Opening Pipelines...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Program ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should show error when programId is not configured for activity', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('activity', 'Opening Activity...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Program ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should show error for unknown cloud tool path', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('unknown-tool', 'Opening Unknown...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.textContent).toContain('Unknown cloud tool');
+        done();
+      }, 200);
+    });
+
+    it('should handle empty orgId as not configured', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('home', 'Opening Cloud Manager Overview...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Organization ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should handle empty programId as not configured', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: ''
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('environments', 'Opening Environments...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Program ID not configured');
+        done();
+      }, 200);
     });
   });
 });

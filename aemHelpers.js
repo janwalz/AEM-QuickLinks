@@ -1,53 +1,104 @@
 // aemHelpers.js
 // Utility functions for AEM Chrome extension
 
+import { getProjects } from './options.js';
+
 const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
 
 /**
- * Gets settings from storage with defaults
- * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string}>}
+ * Matches a URL to a project based on pattern and port
+ * @param {string} url - Current URL
+ * @param {Array} projects - List of projects
+ * @returns {object|null} - Matched project or null
  */
-export async function getPortSettings() {
-  return new Promise((resolve) => {
-    // Check if chrome API is available
-    if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
-      resolve({
-        authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT,
-        dispatcherUrl: ''
-      });
-      return;
-    }
+export function matchUrlToProject(url, projects) {
+  if (!url || !projects || projects.length === 0) {
+    return null;
+  }
 
-    try {
-      chrome.storage.sync.get(['authorPort', 'publishPort', 'dispatcherUrl'], (result) => {
-        // Check for errors
-        if (chrome.runtime?.lastError) {
-          console.warn('Error getting settings:', chrome.runtime.lastError);
-          resolve({
-            authorPort: DEFAULT_AUTHOR_PORT,
-            publishPort: DEFAULT_PUBLISH_PORT,
-            dispatcherUrl: ''
-          });
-          return;
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    const port = urlObj.port;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+    // Find matching project
+    for (const project of projects) {
+      if (matchesPattern(hostname, project.pattern)) {
+        // For localhost/127.0.0.1, also check if port matches author or publish port
+        if (isLocalhost && port) {
+          const authorPort = project.authorPort || DEFAULT_AUTHOR_PORT;
+          const publishPort = project.publishPort || DEFAULT_PUBLISH_PORT;
+
+          // Port must match either author or publish port for this project
+          if (port === authorPort || port === publishPort) {
+            return project;
+          }
+          // Skip this project if port doesn't match
+          continue;
         }
 
-        resolve({
-          authorPort: result.authorPort || DEFAULT_AUTHOR_PORT,
-          publishPort: result.publishPort || DEFAULT_PUBLISH_PORT,
-          dispatcherUrl: result.dispatcherUrl || ''
-        });
-      });
-    } catch (error) {
-      console.warn('Error accessing storage:', error);
-      resolve({
-        authorPort: DEFAULT_AUTHOR_PORT,
-        publishPort: DEFAULT_PUBLISH_PORT,
-        dispatcherUrl: ''
-      });
+        // For non-localhost or localhost without port, hostname match is enough
+        return project;
+      }
     }
-  });
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Checks if a hostname matches a pattern (supports * wildcard)
+ * @param {string} hostname
+ * @param {string} pattern
+ * @returns {boolean}
+ */
+function matchesPattern(hostname, pattern) {
+  // Convert pattern to regex
+  // * matches any characters except dots
+  // *.example.com matches subdomain.example.com but not example.com
+  // example.com matches exactly example.com
+  const regexPattern = pattern
+    .replace(/\./g, '\\.')  // Escape dots
+    .replace(/\*/g, '[^.]+'); // * matches one or more non-dot characters
+
+  const regex = new RegExp(`^${regexPattern}$`, 'i');
+  return regex.test(hostname);
+}
+
+/**
+ * Gets settings for the current URL with project-based config
+ * @param {string} [currentUrl] - Optional URL to match (defaults to current tab)
+ * @returns {Promise<{authorPort: string, publishPort: string, dispatcherUrl: string, orgId: string, programId: string}>}
+ */
+export async function getPortSettings(currentUrl = null) {
+  const projects = await getProjects();
+
+  // If URL provided, match to project
+  if (currentUrl) {
+    const project = matchUrlToProject(currentUrl, projects);
+    if (project) {
+      return {
+        authorPort: project.authorPort || DEFAULT_AUTHOR_PORT,
+        publishPort: project.publishPort || DEFAULT_PUBLISH_PORT,
+        dispatcherUrl: project.dispatcherUrl || '',
+        orgId: project.orgId || '',
+        programId: project.programId || ''
+      };
+    }
+  }
+
+  // No match, return defaults
+  return {
+    authorPort: DEFAULT_AUTHOR_PORT,
+    publishPort: DEFAULT_PUBLISH_PORT,
+    dispatcherUrl: '',
+    orgId: '',
+    programId: ''
+  };
 }
 
 /**
@@ -244,6 +295,95 @@ function showDispatcherNotConfiguredError() {
       });
     }
   }
+}
+
+/**
+ * Shows error message with link to settings when AEM Cloud settings are not configured
+ * @param {string} message - Error message to display
+ */
+export function showCloudNotConfiguredError(message = 'AEM Cloud settings not configured') {
+  const msg = document.getElementById('message');
+  if (msg) {
+    msg.innerHTML = `${message}. <a href="#" id="openSettings" style="color: #667eea; text-decoration: underline;">Open Settings</a>`;
+    msg.classList.add('mint');
+
+    // Add click handler for settings link
+    const settingsLink = document.getElementById('openSettings');
+    if (settingsLink) {
+      settingsLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.runtime.openOptionsPage();
+      });
+    }
+  }
+}
+
+/**
+ * Builds AEM Cloud Console URL
+ * @param {string} orgId - Adobe Organization ID
+ * @param {string} [programId] - Optional program ID
+ * @param {string} [path] - Optional path after program (e.g., 'environments', 'pipelines')
+ * @returns {string} - Full Cloud Console URL
+ */
+export function buildCloudConsoleUrl(orgId, programId = null, path = null) {
+  let url = `https://experience.adobe.com/#/@${orgId}/cloud-manager`;
+
+  if (programId) {
+    if (path) {
+      url += `/${path}.html/program/${programId}`;
+    } else {
+      url += `/home.html/program/${programId}`;
+    }
+  } else {
+    url += '/home.html';
+  }
+
+  return url;
+}
+
+/**
+ * Opens AEM Cloud Console tool
+ * @param {string} path - Path type (e.g., 'home', 'programs', 'environments', 'pipelines', 'activity')
+ * @param {string} message - Message to display
+ */
+export async function openCloudTool(path, message) {
+  chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+    const tab = tabs[0];
+    const settings = await getPortSettings(tab?.url);
+
+    if (!settings.orgId) {
+      showCloudNotConfiguredError('Organization ID not configured');
+      return;
+    }
+
+    let url;
+
+    switch(path) {
+      case 'home':
+        url = buildCloudConsoleUrl(settings.orgId);
+        break;
+      case 'programs':
+        url = `https://experience.adobe.com/#/@${settings.orgId}/cloud-manager/programs.html`;
+        break;
+      case 'environments':
+      case 'pipelines':
+      case 'activity':
+        if (!settings.programId) {
+          showCloudNotConfiguredError('Program ID not configured');
+          return;
+        }
+        url = buildCloudConsoleUrl(settings.orgId, settings.programId, path);
+        break;
+      default:
+        showMessage('Unknown cloud tool', true);
+        return;
+    }
+
+    chrome.tabs.create({ url });
+    showMessage(message, false);
+    // Close popup after successful action
+    setTimeout(() => window.close(), 100);
+  });
 }
 
 // Legacy constants for backward compatibility (kept for tests)
