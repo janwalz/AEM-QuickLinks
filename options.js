@@ -39,41 +39,13 @@ export async function getProjects() {
           return;
         }
 
-        // Migrate old settings if projects don't exist
-        if (!result.projects || result.projects.length === 0) {
-          migrateOldSettings(result).then(resolve);
-        } else {
-          resolve(result.projects || []);
-        }
+        resolve(result.projects || []);
       });
     } catch (error) {
       console.warn('Error accessing storage:', error);
       resolve([]);
     }
   });
-}
-
-/**
- * Migrates old single-project settings to new multi-project format
- * @param {object} oldSettings
- * @returns {Promise<Array>}
- */
-async function migrateOldSettings(oldSettings) {
-  if (oldSettings.authorPort || oldSettings.publishPort || oldSettings.dispatcherUrl) {
-    const defaultProject = {
-      id: generateId(),
-      name: 'Default Project',
-      pattern: 'localhost',
-      authorPort: oldSettings.authorPort || DEFAULT_AUTHOR_PORT,
-      publishPort: oldSettings.publishPort || DEFAULT_PUBLISH_PORT,
-      dispatcherUrl: oldSettings.dispatcherUrl || ''
-    };
-
-    await saveProjects([defaultProject]);
-    return [defaultProject];
-  }
-
-  return [];
 }
 
 /**

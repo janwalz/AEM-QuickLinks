@@ -1,36 +1,10 @@
 // aemHelpers.js
 // Utility functions for AEM Chrome extension
 
+import { getProjects } from './options.js';
+
 const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
-
-/**
- * Gets all projects from storage
- * @returns {Promise<Array>}
- */
-export async function getProjects() {
-  return new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
-      resolve([]);
-      return;
-    }
-
-    try {
-      chrome.storage.sync.get(['projects'], (result) => {
-        if (chrome.runtime?.lastError) {
-          console.warn('Error getting projects:', chrome.runtime.lastError);
-          resolve([]);
-          return;
-        }
-
-        resolve(result.projects || []);
-      });
-    } catch (error) {
-      console.warn('Error accessing storage:', error);
-      resolve([]);
-    }
-  });
-}
 
 /**
  * Matches a URL to a project based on pattern and port

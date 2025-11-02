@@ -109,10 +109,6 @@ You can configure multiple projects with the same `localhost` pattern but differ
 - If you have both `localhost:4502` and `localhost:5502` projects, the extension automatically selects the correct one
 - **Important:** Patterns `localhost` and `127.0.0.1` are treated as different - create separate projects if you use both
 
-### Migration from Old Settings
-
-If you're upgrading from a previous version, your old settings will be automatically migrated to a "Default Project" with a localhost pattern.
-
 ### Finding Your Cloud Manager IDs
 
 To use the AEM Cloud Console features, you need to configure your Organization ID and Program ID:

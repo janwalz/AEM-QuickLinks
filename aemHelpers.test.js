@@ -9,7 +9,6 @@ import {
   getValidContentPath,
   getPortSettings,
   openDispatcher,
-  getProjects,
   matchUrlToProject,
   buildCloudConsoleUrl,
   openCloudTool,
@@ -17,6 +16,7 @@ import {
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
+import { getProjects } from './options.js';
 
 // Mock Chrome API
 global.chrome = {
