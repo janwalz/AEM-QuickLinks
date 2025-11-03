@@ -204,11 +204,7 @@ const BUTTON_HANDLERS = {
   },
 
   btnCloudOverview: async () => {
-    openCloudTool('home', 'Opening Cloud Manager Overview...');
-  },
-
-  btnCloudPrograms: async () => {
-    openCloudTool('programs', 'Opening Programs...');
+    openCloudTool('home', 'Opening Cloud Manager Home...');
   },
 
   btnCloudEnvironments: async () => {

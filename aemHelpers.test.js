@@ -13,6 +13,7 @@ import {
   buildCloudConsoleUrl,
   openCloudTool,
   showCloudNotConfiguredError,
+  extractCloudIds,
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
@@ -848,6 +849,71 @@ describe('aemHelpers', () => {
     });
   });
 
+  describe('extractCloudIds', () => {
+    it('should extract orgId and programId from Cloud Manager URL', () => {
+      const url = 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html/program/12345';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe('1234567@AdobeOrg');
+      expect(result.programId).toBe('12345');
+    });
+
+    it('should extract orgId and programId from environments URL', () => {
+      const url = 'https://experience.adobe.com/#/@9876543@AdobeOrg/cloud-manager/environments.html/program/67890';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe('9876543@AdobeOrg');
+      expect(result.programId).toBe('67890');
+    });
+
+    it('should extract orgId and programId from pipelines URL', () => {
+      const url = 'https://experience.adobe.com/#/@test123@AdobeOrg/cloud-manager/pipelines.html/program/99999';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe('test123@AdobeOrg');
+      expect(result.programId).toBe('99999');
+    });
+
+    it('should extract only orgId when programId is not in URL', () => {
+      const url = 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/programs.html';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe('1234567@AdobeOrg');
+      expect(result.programId).toBe(null);
+    });
+
+    it('should return null for non-Cloud Manager URLs', () => {
+      const url = 'http://localhost:4502/content/page.html';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe(null);
+      expect(result.programId).toBe(null);
+    });
+
+    it('should return null for non-Adobe Experience Cloud URLs', () => {
+      const url = 'https://www.example.com/some/path';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe(null);
+      expect(result.programId).toBe(null);
+    });
+
+    it('should return null for invalid URLs', () => {
+      const url = 'not-a-valid-url';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe(null);
+      expect(result.programId).toBe(null);
+    });
+
+    it('should handle Cloud Manager URL without hash', () => {
+      const url = 'https://experience.adobe.com/cloud-manager';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe(null);
+      expect(result.programId).toBe(null);
+    });
+
+    it('should extract orgId with special characters', () => {
+      const url = 'https://experience.adobe.com/#/@ABC123-xyz@AdobeOrg/cloud-manager/home.html/program/12345';
+      const result = extractCloudIds(url);
+      expect(result.orgId).toBe('ABC123-xyz@AdobeOrg');
+      expect(result.programId).toBe('12345');
+    });
+  });
+
   describe('buildCloudConsoleUrl', () => {
     it('should build home URL with only orgId', () => {
       const url = buildCloudConsoleUrl('1234567@AdobeOrg');
@@ -932,7 +998,7 @@ describe('aemHelpers', () => {
       global.window.close = jest.fn();
     });
 
-    it('should open home tool with only orgId', (done) => {
+    it('should open home tool with orgId and programId', (done) => {
       const mockProjects = [
         {
           id: '1',
@@ -942,7 +1008,7 @@ describe('aemHelpers', () => {
           publishPort: '4503',
           dispatcherUrl: '',
           orgId: '1234567@AdobeOrg',
-          programId: ''
+          programId: '12345'
         }
       ];
 
@@ -954,45 +1020,13 @@ describe('aemHelpers', () => {
         callback([{ url: 'http://localhost:4502/content/page.html' }]);
       });
 
-      openCloudTool('home', 'Opening Cloud Manager Overview...');
+      openCloudTool('home', 'Opening Cloud Manager Home...');
 
       setTimeout(() => {
         expect(chrome.tabs.create).toHaveBeenCalledWith({
-          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html'
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/home.html/program/12345'
         });
         expect(window.close).toHaveBeenCalled();
-        done();
-      }, 200);
-    });
-
-    it('should open programs tool with orgId', (done) => {
-      const mockProjects = [
-        {
-          id: '1',
-          name: 'Cloud Project',
-          pattern: 'localhost',
-          authorPort: '4502',
-          publishPort: '4503',
-          dispatcherUrl: '',
-          orgId: '1234567@AdobeOrg',
-          programId: ''
-        }
-      ];
-
-      chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ projects: mockProjects });
-      });
-
-      chrome.tabs.query.mockImplementation((query, callback) => {
-        callback([{ url: 'http://localhost:4502/content/page.html' }]);
-      });
-
-      openCloudTool('programs', 'Opening Programs...');
-
-      setTimeout(() => {
-        expect(chrome.tabs.create).toHaveBeenCalledWith({
-          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/programs.html'
-        });
         done();
       }, 200);
     });
@@ -1093,6 +1127,70 @@ describe('aemHelpers', () => {
       }, 200);
     });
 
+    it('should prioritize URL-extracted IDs over config', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'experience.adobe.com',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: 'config-org@AdobeOrg',
+          programId: '99999'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'https://experience.adobe.com/#/@url-org@AdobeOrg/cloud-manager/home.html/program/11111' }]);
+      });
+
+      openCloudTool('environments', 'Opening Environments...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@url-org@AdobeOrg/cloud-manager/environments.html/program/11111'
+        });
+        done();
+      }, 200);
+    });
+
+    it('should fall back to config when URL does not contain IDs', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg',
+          programId: '12345'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('pipelines', 'Opening Pipelines...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+          url: 'https://experience.adobe.com/#/@1234567@AdobeOrg/cloud-manager/pipelines.html/program/12345'
+        });
+        done();
+      }, 200);
+    });
+
     it('should show error when orgId is not configured', (done) => {
       const mockProjects = [
         {
@@ -1113,12 +1211,43 @@ describe('aemHelpers', () => {
         callback([{ url: 'http://localhost:4502/content/page.html' }]);
       });
 
-      openCloudTool('home', 'Opening Cloud Manager Overview...');
+      openCloudTool('home', 'Opening Cloud Manager Home...');
 
       setTimeout(() => {
         expect(chrome.tabs.create).not.toHaveBeenCalled();
         const msg = document.getElementById('message');
         expect(msg.innerHTML).toContain('Organization ID not configured');
+        done();
+      }, 200);
+    });
+
+    it('should show error when programId is not configured for home', (done) => {
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Cloud Project',
+          pattern: 'localhost',
+          authorPort: '4502',
+          publishPort: '4503',
+          dispatcherUrl: '',
+          orgId: '1234567@AdobeOrg'
+        }
+      ];
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({ projects: mockProjects });
+      });
+
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ url: 'http://localhost:4502/content/page.html' }]);
+      });
+
+      openCloudTool('home', 'Opening Cloud Manager Home...');
+
+      setTimeout(() => {
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
+        const msg = document.getElementById('message');
+        expect(msg.innerHTML).toContain('Program ID not configured');
         done();
       }, 200);
     });

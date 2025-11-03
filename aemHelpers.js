@@ -319,6 +319,34 @@ export function showCloudNotConfiguredError(message = 'AEM Cloud settings not co
 }
 
 /**
+ * Extracts orgId and programId from a Cloud Manager URL
+ * @param {string} url - Cloud Manager URL
+ * @returns {{orgId: string|null, programId: string|null}} - Extracted IDs
+ */
+export function extractCloudIds(url) {
+  try {
+    const urlObj = new URL(url);
+
+    // Check if it's an Adobe Experience Cloud URL
+    if (!urlObj.hostname.includes('experience.adobe.com')) {
+      return { orgId: null, programId: null };
+    }
+
+    // Extract orgId from hash: #/@{orgId}/cloud-manager/...
+    const hashMatch = urlObj.hash.match(/#\/@([^/]+)\/cloud-manager/);
+    const orgId = hashMatch ? hashMatch[1] : null;
+
+    // Extract programId from hash: .../program/{programId}
+    const programMatch = urlObj.hash.match(/\/program\/([^/?#]+)/);
+    const programId = programMatch ? programMatch[1] : null;
+
+    return { orgId, programId };
+  } catch (e) {
+    return { orgId: null, programId: null };
+  }
+}
+
+/**
  * Builds AEM Cloud Console URL
  * @param {string} orgId - Adobe Organization ID
  * @param {string} [programId] - Optional program ID
@@ -343,15 +371,23 @@ export function buildCloudConsoleUrl(orgId, programId = null, path = null) {
 
 /**
  * Opens AEM Cloud Console tool
- * @param {string} path - Path type (e.g., 'home', 'programs', 'environments', 'pipelines', 'activity')
+ * @param {string} path - Path type (e.g., 'home', 'environments', 'pipelines', 'activity')
  * @param {string} message - Message to display
  */
 export async function openCloudTool(path, message) {
   chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
     const tab = tabs[0];
-    const settings = await getPortSettings(tab?.url);
 
-    if (!settings.orgId) {
+    // Try to extract IDs from current URL first (if on Cloud Manager)
+    const urlIds = extractCloudIds(tab?.url || '');
+
+    // Fall back to config if not found in URL
+    const settings = await getPortSettings(tab?.url);
+    const orgId = urlIds.orgId || settings.orgId;
+    const programId = urlIds.programId || settings.programId;
+
+    // Validate we have required IDs
+    if (!orgId) {
       showCloudNotConfiguredError('Organization ID not configured');
       return;
     }
@@ -360,19 +396,21 @@ export async function openCloudTool(path, message) {
 
     switch(path) {
       case 'home':
-        url = buildCloudConsoleUrl(settings.orgId);
-        break;
-      case 'programs':
-        url = `https://experience.adobe.com/#/@${settings.orgId}/cloud-manager/programs.html`;
+        // Home always needs programId
+        if (!programId) {
+          showCloudNotConfiguredError('Program ID not configured');
+          return;
+        }
+        url = buildCloudConsoleUrl(orgId, programId);
         break;
       case 'environments':
       case 'pipelines':
       case 'activity':
-        if (!settings.programId) {
+        if (!programId) {
           showCloudNotConfiguredError('Program ID not configured');
           return;
         }
-        url = buildCloudConsoleUrl(settings.orgId, settings.programId, path);
+        url = buildCloudConsoleUrl(orgId, programId, path);
         break;
       default:
         showMessage('Unknown cloud tool', true);
