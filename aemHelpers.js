@@ -91,7 +91,19 @@ export async function getPortSettings(currentUrl = null) {
     }
   }
 
-  // No match, return defaults
+  // No match, try to use fallback project
+  const fallbackProject = projects.find(p => p.isFallback);
+  if (fallbackProject) {
+    return {
+      authorPort: fallbackProject.authorPort || DEFAULT_AUTHOR_PORT,
+      publishPort: fallbackProject.publishPort || DEFAULT_PUBLISH_PORT,
+      dispatcherUrl: fallbackProject.dispatcherUrl || '',
+      orgId: fallbackProject.orgId || '',
+      programId: fallbackProject.programId || ''
+    };
+  }
+
+  // No match and no fallback, return defaults
   return {
     authorPort: DEFAULT_AUTHOR_PORT,
     publishPort: DEFAULT_PUBLISH_PORT,
@@ -347,18 +359,69 @@ export function extractCloudIds(url) {
 }
 
 /**
+ * Extracts programId from an AEM Cloud instance URL
+ * @param {string} url - AEM Cloud instance URL
+ * @returns {string|null} - Program ID (e.g., '12345') or null
+ */
+export function extractProgramId(url) {
+  try {
+    const urlObj = new URL(url);
+
+    // Pattern: author-p{programId}-e{envId}.adobeaemcloud.com or publish-p{programId}-e{envId}.adobeaemcloud.com
+    const cloudPattern = /^(author|publish)-p(\w+)-e(\w+)\.adobeaemcloud\.com$/;
+    const match = urlObj.hostname.match(cloudPattern);
+
+    if (match) {
+      return match[2]; // Return program ID (e.g., '12345')
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Extracts environment ID from an AEM Cloud instance URL
+ * @param {string} url - AEM Cloud instance URL
+ * @returns {string|null} - Environment ID (e.g., 'e12345') or null
+ */
+export function extractEnvironmentId(url) {
+  try {
+    const urlObj = new URL(url);
+
+    // Pattern: author-p{programId}-e{envId}.adobeaemcloud.com or publish-p{programId}-e{envId}.adobeaemcloud.com
+    const cloudPattern = /^(author|publish)-p(\w+)-e(\w+)\.adobeaemcloud\.com$/;
+    const match = urlObj.hostname.match(cloudPattern);
+
+    if (match) {
+      return match[3]; // Return environment ID (e.g., '12345')
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Builds AEM Cloud Console URL
  * @param {string} orgId - Adobe Organization ID
  * @param {string} [programId] - Optional program ID
  * @param {string} [path] - Optional path after program (e.g., 'environments', 'pipelines')
+ * @param {string} [environmentId] - Optional environment ID
  * @returns {string} - Full Cloud Console URL
  */
-export function buildCloudConsoleUrl(orgId, programId = null, path = null) {
+export function buildCloudConsoleUrl(orgId, programId = null, path = null, environmentId = null) {
   let url = `https://experience.adobe.com/#/@${orgId}/cloud-manager`;
 
   if (programId) {
     if (path) {
       url += `/${path}.html/program/${programId}`;
+      // Add environment ID if provided (for environment details)
+      if (environmentId) {
+        url += `/environment/${environmentId}`;
+      }
     } else {
       url += `/home.html/program/${programId}`;
     }
@@ -378,13 +441,19 @@ export async function openCloudTool(path, message) {
   chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
     const tab = tabs[0];
 
-    // Try to extract IDs from current URL first (if on Cloud Manager)
+    // Extract IDs from current URL with priority:
+    // - Cloud Manager URLs (experience.adobe.com): orgId + programId via extractCloudIds
+    // - Cloud Instance URLs (*.adobeaemcloud.com): programId + environmentId via extractProgramId/extractEnvironmentId
+    // Note: orgId is NOT available in cloud instance URLs, only in Cloud Manager URLs
     const urlIds = extractCloudIds(tab?.url || '');
+    const instanceProgramId = extractProgramId(tab?.url || '');
 
     // Fall back to config if not found in URL
     const settings = await getPortSettings(tab?.url);
+    // orgId priority: Cloud Manager URL > Config (cloud instance URLs don't contain orgId)
     const orgId = urlIds.orgId || settings.orgId;
-    const programId = urlIds.programId || settings.programId;
+    // programId priority: Cloud Manager URL > Cloud Instance URL > Config
+    const programId = urlIds.programId || instanceProgramId || settings.programId;
 
     // Validate we have required IDs
     if (!orgId) {
@@ -402,6 +471,23 @@ export async function openCloudTool(path, message) {
           return;
         }
         url = buildCloudConsoleUrl(orgId, programId);
+        break;
+      case 'environment-details':
+        // Extract environment ID and program ID from current cloud URL
+        const environmentId = extractEnvironmentId(tab?.url || '');
+        const urlProgramId = extractProgramId(tab?.url || '');
+        if (!environmentId || !urlProgramId) {
+          showMessage('Not on an AEM Cloud instance', true);
+          return;
+        }
+        // For environment-details, use URL orgId if available (from Cloud Manager URL),
+        // otherwise fall back to config orgId (when on cloud instance)
+        const envOrgId = urlIds.orgId || settings.orgId;
+        if (!envOrgId) {
+          showCloudNotConfiguredError('Organization ID not configured');
+          return;
+        }
+        url = buildCloudConsoleUrl(envOrgId, urlProgramId, 'environments', environmentId);
         break;
       case 'environments':
       case 'pipelines':

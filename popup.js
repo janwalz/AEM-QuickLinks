@@ -203,6 +203,10 @@ const BUTTON_HANDLERS = {
     });
   },
 
+  btnCloudEnvironmentDetails: async () => {
+    openCloudTool('environment-details', 'Opening Environment Details...');
+  },
+
   btnCloudOverview: async () => {
     openCloudTool('home', 'Opening Cloud Manager Home...');
   },
