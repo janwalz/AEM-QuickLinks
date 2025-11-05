@@ -6,12 +6,12 @@ Chrome extension for quick access to AEM (Adobe Experience Manager) tools with k
 
 ## Features
 
-**AEM Tools** - CRXDE, Package Manager, OSGi Config, Groovy Console, Replication Agent, Publish Login
-**Current Page Actions** - Open in CRXDE/Author/Publish/Dispatcher/Editor, View as Published, Page Properties
-**AEM Cloud Console** - Environment Details, Environments, Pipelines, Activity (auto-extracts IDs from URLs)
-**Smart Search** - Type to filter any action
-**Keyboard Navigation** - Full keyboard support (`Ctrl+Y` to open, arrows/enter/escape)
-**Multi-Project Config** - Automatic URL pattern matching with port-aware localhost support
+- **AEM Tools** - CRXDE, Package Manager, OSGi Config, Groovy Console, Replication Agent, Publish Login
+- **Current Page Actions** - Open in CRXDE/Author/Publish/Dispatcher/Editor, View as Published, Page Properties
+- **AEM Cloud Console** - Environment Details, Environments, Pipelines, Activity (auto-extracts IDs from URLs)
+- **Smart Search** - Type to filter any action
+- **Keyboard Navigation** - Full keyboard support (`Ctrl+Y` to open, arrows/enter/escape)
+- **Multi-Project Config** - Automatic URL pattern matching with port-aware localhost support
 
 ## Quick Start
 
