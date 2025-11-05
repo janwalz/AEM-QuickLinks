@@ -4,6 +4,8 @@
 
 Chrome extension for quick access to AEM (Adobe Experience Manager) tools with keyboard shortcuts and multi-project support.
 
+<img width="282" height="563" alt="image" src="https://github.com/user-attachments/assets/3b9b669f-ca3c-480a-89b3-ea886e05dfe2" />
+
 ## Features
 
 - **AEM Tools** - CRXDE, Package Manager, OSGi Config, Groovy Console, Replication Agent, Publish Login
