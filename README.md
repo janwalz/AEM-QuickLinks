@@ -2,152 +2,98 @@
 
 [![Run Tests](https://github.com/janwalz/AEM-QuickLinks/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/janwalz/AEM-QuickLinks/actions/workflows/test.yml)
 
-A Chrome extension for quick access to AEM (Adobe Experience Manager) tools and actions from any page.
+Chrome extension for quick access to AEM (Adobe Experience Manager) tools with keyboard shortcuts and multi-project support.
 
 ## Features
 
-### Main Menu Actions
-- **Current Page** - Submenu with page-specific actions (see below)
-- **AEM Cloud** - Submenu with AEM Cloud Manager tools (see below)
-- **CRXDE** - Open CRXDE Lite
-- **Package Manager** - Access the CRX Package Manager
-- **OSGi Config** - Open the OSGi Configuration Manager
-- **Groovy Console** - Launch the Groovy Console
-- **Replication Default Agent** - Open the default replication agent
-- **Login on Publish** - Access the publish instance login page
-- **Dispatcher** - Open your configured Dispatcher URL
+**AEM Tools** - CRXDE, Package Manager, OSGi Config, Groovy Console, Replication Agent, Publish Login
+**Current Page Actions** - Open in CRXDE/Author/Publish/Dispatcher/Editor, View as Published, Page Properties
+**AEM Cloud Console** - Environment Details, Environments, Pipelines, Activity (auto-extracts IDs from URLs)
+**Smart Search** - Type to filter any action
+**Keyboard Navigation** - Full keyboard support (`Ctrl+Y` to open, arrows/enter/escape)
+**Multi-Project Config** - Automatic URL pattern matching with port-aware localhost support
 
-### Current Page Submenu
-When on an AEM content page, access additional context-aware actions:
-- **Open in CRXDE** - Opens CRXDE with the current page's node selected (falls back to standard CRXDE if no content page detected)
-- **Open in Author** - Opens the current page on the Author instance
-- **Open in Publish** - Opens the current page on the Publish instance
-- **Open in Dispatcher** - Opens the current page on your configured Dispatcher
-- **Open in Edit View** - Opens the page in AEM's Page Editor
-- **View as Published** - Opens the page with `wcmmode=disabled` parameter
-- **Open Page Properties** - Access the page properties dialog
+## Quick Start
 
-### AEM Cloud Submenu
-Quick access to AEM Cloud Manager console tools (requires Organization ID and Program ID configuration):
-- **Cloud Manager Overview** - Open the Cloud Manager home page
-- **Programs** - View all your AEM Cloud programs
-- **Environments** - Access the environments for your configured program
-- **Pipelines** - Manage and run CI/CD pipelines
-- **Activity** - View deployment and pipeline activity history
-
-### Additional Features
-- **Searchable Actions** - Type to filter and quickly find any action
-- **Keyboard Navigation** - Full keyboard support for efficient navigation
-- **AEM Cloud & Localhost Support** - Works with both AEM Cloud instances and local development environments
+1. Install extension in Chrome (`chrome://extensions` → Load unpacked)
+2. Press `Ctrl+Y` on any page or click the extension icon
+3. Navigate with keyboard or search, press Enter to execute
 
 ## Keyboard Shortcuts
 
-### Global
-- **Ctrl+Y** - Open the extension popup
+| Key | Action |
+|-----|--------|
+| `Ctrl+Y` | Open popup |
+| `↑` / `↓` | Navigate actions |
+| `Enter` | Execute action |
+| `Escape` | Back / Clear search / Close |
+| `Home` / `End` | Jump to first/last |
+| `PgUp` / `PgDn` | Skip 5 actions |
 
-### Navigation (when popup is open)
-- **Type to search** - Filter actions by name
-- **Arrow Up/Down** - Navigate through actions
-- **Enter** - Execute selected action
-- **Escape** - Go back to main menu / clear search / close popup
-- **Home** - Jump to first action
-- **End** - Jump to last action
-- **Page Up/Down** - Skip 5 actions at a time
+## Configuration
 
-## Supported AEM Environments
-- **AEM Cloud**: `author-p*-e*.adobeaemcloud.com` and `publish-p*-e*.adobeaemcloud.com`
-- **Localhost**: `localhost:4502` (Author) and `localhost:4503` (Publish)
+### Multi-Project Setup
 
-## Installation (Development)
-1. Clone or download this repository.
-2. Open Chrome and go to `chrome://extensions`.
-3. Enable "Developer mode" (top right).
-4. Click "Load unpacked" and select the extension folder.
-5. The extension icon will appear in your toolbar.
+Right-click extension icon → **Options** → **Add Project**
 
-## Usage
-1. Navigate to any AEM page (or use Ctrl+Y from anywhere)
-2. Click the extension icon or press **Ctrl+Y**
-3. Search for an action or use keyboard navigation
-4. Press **Enter** or click to execute the action
+Configure for each AEM environment:
+- **Project Name** - Friendly identifier
+- **URL Pattern** - Hostname pattern (supports `*` wildcard)
+- **Author/Publish Ports** - Default: 4502/4503
+- **Dispatcher URL** - Base URL (e.g., `https://www.yoursite.com`)
+- **Adobe Org ID** - For Cloud Manager (e.g., `1234567@AdobeOrg`)
+- **AEM Cloud Program ID** - For Cloud Manager (e.g., `12345`)
 
-## Settings
+### URL Pattern Matching Logic
 
-The extension supports multiple project configurations with automatic URL matching.
+The extension uses **first-match-wins** pattern matching:
 
-### Multi-Project Configuration
+**Pattern Syntax:**
+- `*` = wildcard matching one or more characters (excluding dots)
+- `*.adobeaemcloud.com` matches `author-p12345-e67890.adobeaemcloud.com`
+- `*.adobeaemcloud.com` does NOT match `adobeaemcloud.com` (missing subdomain)
+- `localhost` matches localhost on any port
 
-1. Right-click the extension icon and select **Options**
-2. Click **Add Project** to create a new project configuration
-3. Configure each project with:
-   - **Project Name** - A friendly name to identify the project
-   - **URL Pattern** - Domain pattern to match (supports * wildcard)
-     - Examples: `localhost`, `example.com`, `*.adobeaemcloud.com`
-     - Use `*` to match subdomains (e.g., `author-p12345-*.adobeaemcloud.com`)
-   - **Author Port** (default: 4502) - Port for Author instance
-   - **Publish Port** (default: 4503) - Port for Publish instance
-   - **Dispatcher URL** - Base URL for your Dispatcher (e.g., https://www.yoursite.com)
-   - **Adobe Organization ID** (optional) - Your Adobe organization ID for Cloud Manager links (e.g., `1234567@AdobeOrg`)
-   - **AEM Cloud Program ID** (optional) - Your Cloud Manager program ID for direct environment/pipeline links
-4. The extension automatically detects which project to use based on the current URL
+**Matching Priority:**
+1. **Hostname Match** - Pattern must match current URL hostname
+2. **Port Match (localhost only)** - For `localhost` or `127.0.0.1`, the current port must match either authorPort or publishPort
+3. **First Match** - First matching project in your list wins
 
-### Pattern Matching
+**Examples:**
 
-- Patterns match the hostname of the current URL
-- The first matching project in your list is used
-- **Tip:** Order matters! Place more specific patterns before general wildcard patterns
-  - Example: List `author-p12345-e67890.adobeaemcloud.com` before `*.adobeaemcloud.com`
-- Wildcard `*` matches one or more characters (but not dots)
-  - `*.adobeaemcloud.com` matches `author-p12345-e67890.adobeaemcloud.com`
-  - `*.adobeaemcloud.com` does NOT match `adobeaemcloud.com`
+| Current URL | Pattern | Matches? | Reason |
+|-------------|---------|----------|--------|
+| `http://localhost:4502/...` | `localhost` (ports: 4502/4503) | ✅ Yes | Hostname and port match |
+| `http://localhost:5502/...` | `localhost` (ports: 4502/4503) | ❌ No | Port doesn't match |
+| `http://localhost:5502/...` | `localhost` (ports: 5502/5503) | ✅ Yes | Port matches author |
+| `https://author-p12345-e67890.adobeaemcloud.com/...` | `*.adobeaemcloud.com` | ✅ Yes | Wildcard matches subdomain |
+| `https://author-p12345-e67890.adobeaemcloud.com/...` | `author-p12345-*.adobeaemcloud.com` | ✅ Yes | Specific wildcard matches |
 
-### Multiple Localhost Projects
+**Best Practices:**
+- Order matters! Place specific patterns before wildcards
+- For multiple localhost projects with different ports, use same pattern but different port configs
+- Use fallback project for non-AEM URLs (set via checkbox)
 
-You can configure multiple projects with the same `localhost` pattern but different ports:
-- The extension matches based on the **current port** in your browser URL
-- Example: If you're on `http://localhost:5502`, it matches the project with authorPort `5502` or publishPort `5503`
-- If you have both `localhost:4502` and `localhost:5502` projects, the extension automatically selects the correct one
-- **Important:** Patterns `localhost` and `127.0.0.1` are treated as different - create separate projects if you use both
+### Cloud Manager ID Auto-Extraction
 
-### Finding Your Cloud Manager IDs
+The extension automatically extracts Cloud Manager IDs from URLs:
 
-To use the AEM Cloud Console features, you need to configure your Organization ID and Program ID:
+**From Cloud Manager URLs (`experience.adobe.com`):**
+- Org ID from: `#/@{orgId}/cloud-manager/...`
+- Program ID from: `.../program/{programId}/...`
 
-1. **Organization ID**:
-   - Log in to [Adobe Experience Cloud](https://experience.adobe.com)
-   - Look at the URL - it will contain your org ID (format: `1234567@AdobeOrg`)
-   - Or find it in Cloud Manager URL: `https://experience.adobe.com/#/@{orgId}/cloud-manager/...`
+**From AEM Cloud Instance URLs (`*.adobeaemcloud.com`):**
+- Program ID from: `author-p{programId}-e{envId}.adobeaemcloud.com`
+- Environment ID from: `author-p{programId}-e{envId}.adobeaemcloud.com`
 
-2. **Program ID**:
-   - Open Cloud Manager and select your program
-   - The URL will show the program ID: `.../program/{programId}`
-   - Usually a numeric value like `12345`
-
-**Important Notes:**
-- The Dispatcher URL must be configured to use dispatcher-related buttons
-- Organization ID is required for all AEM Cloud Console tools
-- Program ID is required for Environments, Pipelines, and Activity tools
-- If not configured, you'll see an error with a link to the settings page
+**Priority:** URL-extracted IDs override configured IDs. Configure IDs in settings only if not already in Cloud Manager/instance URLs.
 
 ## Development
 
-### Running Tests
 ```bash
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage report
-npm run test:coverage
+npm install        # Install dependencies
+npm test           # Run tests
+npm run test:watch # Run tests in watch mode
 ```
 
-### Test Coverage
-The project includes comprehensive unit tests for utility functions in `aemHelpers.js`:
-- 98 tests covering all major functionality including multi-project support with port-based matching
-- 98% code coverage for critical utility functions
-- Automated testing via GitHub Actions on every commit
+**Test Coverage:** 98 tests with 98% coverage for `aemHelpers.js` (multi-project matching, URL parsing, ID extraction)
