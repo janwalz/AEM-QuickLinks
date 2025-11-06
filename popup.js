@@ -181,7 +181,7 @@ const BUTTON_HANDLERS = {
       getValidContentPath(tab, contentPath => {
         // Remove file extension and add /jcr:content.html for page properties
         const pagePath = contentPath.replace(/\.[^./?#]+(\.[^./?#]+)?$/, '');
-        openAemTool('/mnt/override/apps/wcm/core/content/sites/properties.html?item=' + pagePath, settings.authorPort, 'Opening page properties...');
+        openAemTool('/mnt/overlay/wcm/core/content/sites/properties.html?item=' + pagePath, settings.authorPort, 'Opening page properties...');
       });
     });
   },
