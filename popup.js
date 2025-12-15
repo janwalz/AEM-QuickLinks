@@ -175,6 +175,27 @@ const BUTTON_HANDLERS = {
     });
   },
 
+  btnSlingModelExporter: async () => {
+    withValidAemTab(async tab => {
+      const settings = await getPortSettings(tab.url);
+      const systemType = getAemSystemType(tab.url, settings);
+      if (!systemType) {
+        showMessage('Not an AEM or localhost URL!', true);
+        return;
+      }
+      getValidContentPath(tab, contentPath => {
+        // Replace .html with .model.json
+        const modelPath = contentPath.replace(/\.html$/, '.model.json');
+        // Determine which port to use based on current system type
+        let port = new URL(tab.url).port;
+        if (!port || port === '') {
+          port = systemType === 'author' ? settings.authorPort : settings.publishPort;
+        }
+        openAemTool(modelPath, port, 'Opening Sling Model Exporter...');
+      });
+    });
+  },
+
   btnPageProperties: async () => {
     withValidAemTab(async tab => {
       const settings = await getPortSettings(tab.url);
