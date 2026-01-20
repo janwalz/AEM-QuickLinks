@@ -1,79 +1,10 @@
 // options.js
 // Settings page logic for AEM QuickLinks Extension - Multi-Project Support
 
+import { getProjects, saveProjects } from './storage.js';
+
 const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';
-
-/**
- * Project data structure:
- * {
- *   id: string (unique),
- *   name: string,
- *   pattern: string (URL pattern with * wildcard),
- *   authorPort: string,
- *   publishPort: string,
- *   dispatcherUrl: string,
- *   orgId: string (optional - Adobe Organization ID),
- *   programId: string (optional - AEM Cloud Program ID),
- *   isFallback: boolean (optional - use when not on AEM URL)
- * }
- */
-
-// ===== Storage Functions =====
-
-/**
- * Gets all projects from storage
- * @returns {Promise<Array>}
- */
-export async function getProjects() {
-  return new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
-      resolve([]);
-      return;
-    }
-
-    try {
-      chrome.storage.sync.get(['projects'], (result) => {
-        if (chrome.runtime?.lastError) {
-          console.warn('Error getting projects:', chrome.runtime.lastError);
-          resolve([]);
-          return;
-        }
-
-        resolve(result.projects || []);
-      });
-    } catch (error) {
-      console.warn('Error accessing storage:', error);
-      resolve([]);
-    }
-  });
-}
-
-/**
- * Saves projects to storage
- * @param {Array} projects
- * @returns {Promise<void>}
- */
-export async function saveProjects(projects) {
-  return new Promise((resolve, reject) => {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.sync) {
-      reject(new Error('Chrome storage API not available'));
-      return;
-    }
-
-    try {
-      chrome.storage.sync.set({ projects }, () => {
-        if (chrome.runtime?.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
 
 /**
  * Generates a unique ID

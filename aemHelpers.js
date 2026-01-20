@@ -1,7 +1,7 @@
 // aemHelpers.js
 // Utility functions for AEM Chrome extension
 
-import { getProjects } from './options.js';
+import { getProjects } from './storage.js';
 
 const DEFAULT_AUTHOR_PORT = '4502';
 const DEFAULT_PUBLISH_PORT = '4503';

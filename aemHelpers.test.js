@@ -19,7 +19,7 @@ import {
   PORT_AUTHOR,
   PORT_PUBLISH
 } from './aemHelpers.js';
-import { getProjects } from './options.js';
+import { getProjects } from './storage.js';
 
 // Mock Chrome API
 global.chrome = {
