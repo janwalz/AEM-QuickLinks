@@ -237,7 +237,9 @@ export function openAemTool(path, port, message) {
       const u = new URL(tab.url);
       baseUrl = `${u.protocol}//${u.hostname}:${port}`;
     } catch (e) {}
-    chrome.tabs.create({ url: `${baseUrl}${path}` });
+    const createOptions = { url: `${baseUrl}${path}` };
+    if (typeof tab.index === 'number') createOptions.index = tab.index + 1;
+    chrome.tabs.create(createOptions);
     showMessage(message, false);
     // Close popup after successful action
     setTimeout(() => window.close(), 100);
@@ -289,9 +291,14 @@ export function openDispatcher(dispatcherUrl, path = '') {
   const baseUrl = dispatcherUrl.replace(/\/$/, '');
   const fullUrl = path ? `${baseUrl}${path}` : baseUrl;
 
-  chrome.tabs.create({ url: fullUrl });
-  showMessage('Opening dispatcher...', false);
-  setTimeout(() => window.close(), 100);
+  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+    const tab = tabs[0];
+    const createOptions = { url: fullUrl };
+    if (tab && typeof tab.index === 'number') createOptions.index = tab.index + 1;
+    chrome.tabs.create(createOptions);
+    showMessage('Opening dispatcher...', false);
+    setTimeout(() => window.close(), 100);
+  });
 }
 
 /**
@@ -508,7 +515,9 @@ export async function openCloudTool(path, message) {
         return;
     }
 
-    chrome.tabs.create({ url });
+    const createOptions = { url };
+    if (tab && typeof tab.index === 'number') createOptions.index = tab.index + 1;
+    chrome.tabs.create(createOptions);
     showMessage(message, false);
     // Close popup after successful action
     setTimeout(() => window.close(), 100);

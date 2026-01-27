@@ -173,7 +173,9 @@
         baseUrl = `${u.protocol}//${u.hostname}:${port}`;
       } catch (e) {
       }
-      chrome.tabs.create({ url: `${baseUrl}${path}` });
+      const createOptions = { url: `${baseUrl}${path}` };
+      if (typeof tab.index === "number") createOptions.index = tab.index + 1;
+      chrome.tabs.create(createOptions);
       showMessage(message, false);
       setTimeout(() => window.close(), 100);
     });
@@ -203,9 +205,14 @@
     }
     const baseUrl = dispatcherUrl.replace(/\/$/, "");
     const fullUrl = path ? `${baseUrl}${path}` : baseUrl;
-    chrome.tabs.create({ url: fullUrl });
-    showMessage("Opening dispatcher...", false);
-    setTimeout(() => window.close(), 100);
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      const createOptions = { url: fullUrl };
+      if (tab && typeof tab.index === "number") createOptions.index = tab.index + 1;
+      chrome.tabs.create(createOptions);
+      showMessage("Opening dispatcher...", false);
+      setTimeout(() => window.close(), 100);
+    });
   }
   function showDispatcherNotConfiguredError() {
     const msg = document.getElementById("message");
@@ -340,7 +347,9 @@
           showMessage("Unknown cloud tool", true);
           return;
       }
-      chrome.tabs.create({ url });
+      const createOptions = { url };
+      if (tab && typeof tab.index === "number") createOptions.index = tab.index + 1;
+      chrome.tabs.create(createOptions);
       showMessage(message, false);
       setTimeout(() => window.close(), 100);
     });
