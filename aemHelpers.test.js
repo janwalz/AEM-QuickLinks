@@ -490,6 +490,21 @@ describe('aemHelpers', () => {
     it('should return null for invalid URLs', () => {
       expect(getContentPath('not-a-url')).toBe(null);
     });
+
+    it('should extract path from ?item parameter (page properties)', () => {
+      const url = 'http://localhost:4502/mnt/overlay/wcm/core/content/sites/properties.html?item=/content/site/page';
+      expect(getContentPath(url)).toBe('/content/site/page.html');
+    });
+
+    it('should extract path from ?item parameter with .html extension', () => {
+      const url = 'http://localhost:4502/mnt/overlay/wcm/core/content/sites/properties.html?item=/content/site/page.html';
+      expect(getContentPath(url)).toBe('/content/site/page.html');
+    });
+
+    it('should ignore ?item parameter if not a content path', () => {
+      const url = 'http://localhost:4502/some/page?item=/apps/something';
+      expect(getContentPath(url)).toBe(null);
+    });
   });
 
   describe('getAemSystemType', () => {

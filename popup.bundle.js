@@ -120,6 +120,10 @@
   function getContentPath(url) {
     try {
       const u = new URL(url);
+      const itemParam = u.searchParams.get("item");
+      if (itemParam && itemParam.startsWith("/content")) {
+        return itemParam.endsWith(".html") ? itemParam : itemParam + ".html";
+      }
       const editorMatch = u.pathname.match(/^\/editor\.html(\/content[^?#]*)/);
       if (editorMatch) {
         return editorMatch[1];

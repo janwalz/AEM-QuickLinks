@@ -165,6 +165,11 @@ export function isCloudOrLocalhost(url) {
 export function getContentPath(url) {
   try {
     const u = new URL(url);
+    // Handle ?item= parameter (used in page properties dialog)
+    const itemParam = u.searchParams.get('item');
+    if (itemParam && itemParam.startsWith('/content')) {
+      return itemParam.endsWith('.html') ? itemParam : itemParam + '.html';
+    }
     // Handle /editor.html/content...
     const editorMatch = u.pathname.match(/^\/editor\.html(\/content[^?#]*)/);
     if (editorMatch) {
