@@ -538,11 +538,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const allButtons = [...elements.buttons, ...elements.submenuButtons, ...elements.cloudMenuButtons];
 
-  // Focus search input
+  // Focus search input immediately for better UX
   elements.search.focus();
 
-  // Submenu navigation
-  if (elements.btnCurrentPageMenu) {
+  // Initialize search immediately for visible state
+  handleSearch('', elements, allButtons, state);
+
+  // Defer event listener setup to improve initial load
+  requestAnimationFrame(() => {
+    setupEventListeners();
+  });
+
+  function setupEventListeners() {
+    // Submenu navigation
+    if (elements.btnCurrentPageMenu) {
     elements.btnCurrentPageMenu.addEventListener('click', (e) => {
       e.preventDefault();
       showSubmenu(elements, state);
@@ -588,16 +597,14 @@ document.addEventListener('DOMContentLoaded', () => {
     handleSearch(elements.search.value, elements, allButtons, state);
   });
 
-  // Keyboard navigation
-  elements.search.addEventListener('keydown', (e) => {
-    handleKeydown(e, elements, allButtons, state);
-  });
+    // Keyboard navigation
+    elements.search.addEventListener('keydown', (e) => {
+      handleKeydown(e, elements, allButtons, state);
+    });
 
-  // Initialize search
-  handleSearch('', elements, allButtons, state);
-
-  // Register button action handlers
-  Object.keys(BUTTON_HANDLERS).forEach(buttonId => {
-    addButtonListener(buttonId, BUTTON_HANDLERS[buttonId]);
-  });
+    // Register button action handlers
+    Object.keys(BUTTON_HANDLERS).forEach(buttonId => {
+      addButtonListener(buttonId, BUTTON_HANDLERS[buttonId]);
+    });
+  }
 });

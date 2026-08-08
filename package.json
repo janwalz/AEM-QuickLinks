@@ -4,7 +4,7 @@
   "description": "Chrome extension with useful AEM links",
   "type": "module",
   "scripts": {
-    "build": "esbuild popup.js --bundle --outfile=popup.bundle.js --format=iife",
+    "build": "esbuild popup.js --bundle --outfile=popup.bundle.js --format=iife --minify --tree-shaking=true --target=chrome120",
     "watch": "esbuild popup.js --bundle --outfile=popup.bundle.js --format=iife --watch",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
